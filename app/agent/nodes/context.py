@@ -72,7 +72,9 @@ def laya_router(state: SupportState, settings: Settings | None = None) -> dict[s
         "needs_human": decision.needs_human,
         "needs_human_reason": decision.needs_human_reason,
         "injection": decision.injection_conf or 0.0,
-        "router_decision": decision,
+        # Plain data, not the RouterDecision: whatever goes into the state is
+        # written to the checkpointer, and a dataclass has no stable serializer.
+        "router_decision": decision.answers_for_log(),
         "router_state": router_state,
         # Kept from the original agent: now derived from the router, not keywords.
         "escalate": decision.needs_human,

@@ -84,8 +84,9 @@ class SupportState(TypedDict, total=False):
     unsafe: bool
     # Set by an agent that wants a ticket opened before it finishes.
     wants_ticket: bool
-    # The router's full decision, for the trace and the UI.
-    router_decision: Any
+    # The router's answers as plain data, for the trace and the UI. Not the
+    # RouterDecision object: state is written to the checkpointer.
+    router_decision: dict[str, Any]
     # The exact text the router saw, kept so a decision can be explained.
     router_state: str
 

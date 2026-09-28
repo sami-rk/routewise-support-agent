@@ -65,15 +65,36 @@ def approval_gate(state: SupportState, settings: Settings | None = None) -> dict
 
     mode, payload = build_interrupt_payload(action, state, settings)
 
+    if mode == "auto":
+        # Inside the window and under the limit: no interruption, no waiting on
+        # a person. This is the whole point of REFUND_AUTO_LIMIT.
+        return {
+            "approval": "approved",
+            "approval_note": "within the automatic limit",
+            "mode": "auto",
+            "approved_by": "automatic",
+            "interrupt": None,
+        }
+
     resume_value = interrupt(payload)
-    decision, note = read_resume(resume_value)
+    decision, note, by = read_resume(resume_value)
 
     return {
         "approval": decision,
         "approval_note": note,
+        "approved_by": by or default_approver(mode),
         "interrupt": None,
         "mode": mode,
     }
+
+
+def default_approver(mode: str) -> str:
+    """Who to record as approving, when the caller did not say.
+
+    A refund approved through the staff endpoint is a person, not the system, so
+    the audit trail says so rather than "automatic".
+    """
+    return "staff:api" if mode == "staff_approve" else "customer"
 
 
 def build_interrupt_payload(
@@ -119,32 +140,36 @@ def build_interrupt_payload(
     }
 
 
-def read_resume(value: Any) -> tuple[str, str | None]:
-    """Read the decision out of whatever the caller resumed with.
+def read_resume(value: Any) -> tuple[str, str | None, str | None]:
+    """Read the decision, note and approver out of whatever was resumed with.
 
     Accepts `{"decision": "approved"}`, a bare string, or the client's
-    `{"approved": true}` shape, because the API and the CLI send different
-    things. Anything unrecognised is a rejection, which is the safe default: a
-    malformed resume must not run a refund.
+    `{"approved": true}` shape, because the API, the CLI and the UI send
+    different things. Anything unrecognised is a rejection, which is the safe
+    default: a malformed resume must not run a refund.
+
+    Returns:
+        `(decision, note, approved_by)`.
     """
     if value is None:
-        return "rejected", "no decision was given"
+        return "rejected", "no decision was given", None
     if isinstance(value, str):
         lowered = value.strip().lower()
         if lowered in ("approved", "approve", "yes", "true", "confirm"):
-            return "approved", None
-        return "rejected", value
+            return "approved", None, None
+        return "rejected", value, None
     if isinstance(value, dict):
         decision = value.get("decision") or value.get("status")
         note = value.get("note")
+        who = value.get("approved_by") or value.get("by")
         if decision is not None:
-            resolved, _ = read_resume(str(decision))
-            return resolved, note
+            resolved, _, _ = read_resume(str(decision))
+            return resolved, note, who
         if "approved" in value:
-            return ("approved", note) if value["approved"] else ("rejected", note)
+            return (("approved", note, who) if value["approved"] else ("rejected", note, who))
         if "confirmed" in value:
-            return ("approved", note) if value["confirmed"] else ("rejected", note)
-    return "rejected", f"could not understand the decision: {value!r}"
+            return (("approved", note, who) if value["confirmed"] else ("rejected", note, who))
+    return "rejected", f"could not understand the decision: {value!r}", None
 
 
 def execute_action(state: SupportState, settings: Settings | None = None) -> dict[str, Any]:
