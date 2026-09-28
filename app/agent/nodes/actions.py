@@ -13,6 +13,7 @@ design:
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -76,8 +77,11 @@ def approval_gate(state: SupportState, settings: Settings | None = None) -> dict
             "interrupt": None,
         }
 
+    record_pending(state, payload)
     resume_value = interrupt(payload)
     decision, note, by = read_resume(resume_value)
+
+    resolve_pending(state.get("thread_id") or "", decision, note)
 
     return {
         "approval": decision,
@@ -86,6 +90,37 @@ def approval_gate(state: SupportState, settings: Settings | None = None) -> dict
         "interrupt": None,
         "mode": mode,
     }
+
+
+def record_pending(state: SupportState, payload: dict[str, Any]) -> None:
+    """Note that a thread is waiting, so the staff queue can list it.
+
+    Written here, in the gate, rather than in an API handler, so the CLI and the
+    SSE stream produce the same queue as `POST /chat`.
+    """
+    execute(
+        "INSERT INTO pending_actions (thread_id, customer_id, action, payload, mode, status) "
+        "VALUES (?, ?, ?, ?, ?, 'awaiting') "
+        "ON CONFLICT(thread_id) DO UPDATE SET payload = excluded.payload, "
+        "mode = excluded.mode, status = 'awaiting', resolved_at = NULL",
+        (
+            state.get("thread_id") or "unknown",
+            state.get("customer_id") or "",
+            str(payload.get("type", "unknown")),
+            json.dumps(payload, default=str),
+            str(payload.get("mode", "staff_approve")),
+        ),
+    )
+
+
+def resolve_pending(thread_id: str, decision: str, note: str | None = None) -> None:
+    """Mark a queued decision as made."""
+    if not thread_id:
+        return
+    execute(
+        "UPDATE pending_actions SET status = ?, resolved_at = datetime('now') WHERE thread_id = ?",
+        (decision, thread_id),
+    )
 
 
 def default_approver(mode: str) -> str:

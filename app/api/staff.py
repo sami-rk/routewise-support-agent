@@ -26,27 +26,8 @@ router = APIRouter(
     dependencies=[Depends(require_admin)],
 )
 
-# Where a pause is recorded while it waits for a decision. LangGraph's
-# checkpointer holds the thread, but the queue needs a queryable row.
-PENDING_STATUS = "awaiting"
-
-
-def _pending_row(thread_id: str, customer_id: str, payload: dict[str, Any]) -> None:
-    from ..db.session import execute
-
-    execute(
-        "INSERT INTO pending_actions (thread_id, customer_id, action, payload, mode, status) "
-        "VALUES (?, ?, ?, ?, ?, 'awaiting') "
-        "ON CONFLICT(thread_id) DO UPDATE SET payload = excluded.payload, "
-        "mode = excluded.mode, status = 'awaiting', resolved_at = NULL",
-        (
-            thread_id,
-            customer_id,
-            str(payload.get("type", "unknown")),
-            __import__("json").dumps(payload, default=str),
-            str(payload.get("mode", "staff_approve")),
-        ),
-    )
+# The pending row is written by the approval gate itself, so every client
+# (API, CLI, stream) produces the same queue.
 
 
 def _resolve_pending(thread_id: str, decision: str, note: str | None) -> None:

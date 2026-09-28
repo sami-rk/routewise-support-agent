@@ -142,9 +142,20 @@ class TestRefundApproval:
 
     def test_a_pending_approval_is_listed(self, client, admin) -> None:
         self._start_large_refund(client)
-        # The queue is written when the API records the pause.
         rows = client.get("/approvals/pending", headers=admin).json()
-        assert isinstance(rows, list)
+        assert [row["thread_id"] for row in rows] == ["api-refund"]
+        assert rows[0]["mode"] == "staff_approve"
+        assert rows[0]["status"] == "awaiting"
+
+    def test_the_queue_clears_once_decided(self, client, admin) -> None:
+        from tests.stub_llm import ScriptedLLM
+
+        thread_id = self._start_large_refund(client)
+        with ScriptedLLM(["Approved and refunded."]):
+            client.post(
+                f"/approvals/{thread_id}", json={"decision": "approved"}, headers=admin
+            )
+        assert client.get("/approvals/pending", headers=admin).json() == []
 
     def test_approving_a_refund_runs_it(self, client, admin) -> None:
         thread_id = self._start_large_refund(client)
