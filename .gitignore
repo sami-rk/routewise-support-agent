@@ -227,6 +227,8 @@ PROJECT_SPEC.md
 # Generated databases
 data/*.db
 data/*.db-journal
+data/*.db-wal
+data/*.db-shm
 data/*.sqlite3
 data/checkpoints*.db
 
