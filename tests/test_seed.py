@@ -95,6 +95,31 @@ def test_seeding_twice_is_idempotent(seeded_db) -> None:
     assert query_one("SELECT COUNT(*) AS n FROM invoices")["n"] == 20
 
 
+def test_reseeding_clears_refunds(seeded_db) -> None:
+    # A refund from a previous run would make the demo customer look
+    # already-refunded, and the refund flow would decline them.
+    from app.db.session import execute
+    from app.tools.refunds import create_refund
+
+    execute("UPDATE invoices SET charged_at = datetime('now') WHERE id = 'inv_ada_current'")
+    create_refund("inv_ada_current", 19.0, "from a previous run")
+    assert query_one("SELECT COUNT(*) AS n FROM refunds")["n"] == 1
+
+    seed()
+    assert query_one("SELECT COUNT(*) AS n FROM refunds")["n"] == 0
+
+
+def test_reseeding_clears_pending_approvals(seeded_db) -> None:
+    from app.db.session import execute
+
+    execute(
+        "INSERT INTO pending_actions (thread_id, customer_id, action, payload, mode) "
+        "VALUES ('t1', 'cus_ada', 'refund', '{}', 'staff_approve')"
+    )
+    seed()
+    assert query_one("SELECT COUNT(*) AS n FROM pending_actions")["n"] == 0
+
+
 def test_customer_emails_are_unique(seeded_db) -> None:
     emails = [row["email"] for row in query_all("SELECT email FROM customers")]
     assert len(emails) == len(set(emails))

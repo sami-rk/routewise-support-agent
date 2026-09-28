@@ -47,12 +47,21 @@ def iso(days_ago: float, *, base: datetime | None = None) -> str:
 
 
 def seed(db_path: Path | None = None) -> dict[str, int]:
-    """Create the schema and insert the demo data. Returns row counts."""
+    """Create the schema and insert the demo data. Returns row counts.
+
+    Customers, subscriptions, invoices and tickets are replaced. Refunds and
+    pending approvals are cleared, because they are history rather than seed
+    data: leaving a refund from a previous run would make the demo customers
+    look already-refunded and the refund flow would decline them.
+    """
     set_db_path(db_path) if db_path else init_db()
     init_db()
 
     now = datetime.now(UTC)
     counts = {"customers": 0, "subscriptions": 0, "invoices": 0, "tickets": 0, "refunds": 0}
+
+    execute("DELETE FROM refunds")
+    execute("DELETE FROM pending_actions")
 
     for (
         cid,
