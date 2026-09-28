@@ -52,6 +52,42 @@ class TestRoutingPaths:
         assert result["intent"] == "account"
 
 
+class TestHandoffQuality:
+    """The handoff is what a customer reads when something went wrong.
+
+    The free models sometimes answer with a fragment or a status token instead of
+    a handoff, and the original project put the literal string "TICKET_ID" in its
+    canned reply. Neither may reach a customer.
+    """
+
+    @pytest.mark.parametrize(
+        "junk",
+        [
+            "User Safety: safe",
+            "",
+            "TICKET_ID",
+            "I cannot assist with that request.",
+            "ok",
+        ],
+    )
+    def test_unusable_prose_falls_back(self, graph, junk: str) -> None:
+        with ScriptedLLM([junk]):
+            result = graph.invoke(user_turn("I want a human"))
+        assert "support team" in result["response"].lower()
+        assert "TICKET_ID" not in result["response"]
+
+    def test_the_ticket_id_appears_in_the_reply(self, graph) -> None:
+        with ScriptedLLM(["I have passed this to our team and a person will follow up."]):
+            result = graph.invoke(user_turn("I want a human"))
+        assert result["ticket_id"] in result["response"]
+
+    def test_good_prose_is_kept(self, graph) -> None:
+        good = "I am sorry this happened. A person from our team will pick this up shortly."
+        with ScriptedLLM([good]):
+            result = graph.invoke(user_turn("I want a human"))
+        assert result["response"].startswith("I am sorry this happened")
+
+
 class TestEscalation:
     def test_asking_for_a_human_opens_a_ticket(self, graph) -> None:
         with ScriptedLLM(["I have passed this to our team. Reference tkt_test."]):

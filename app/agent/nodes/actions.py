@@ -291,19 +291,17 @@ def default_subject(state: SupportState) -> str:
 
 
 def escalate(state: SupportState, settings: Settings | None = None) -> dict[str, Any]:
-    """Hand the conversation to a person, and open a ticket for them.
+    """Hand the conversation to a person.
 
-    Replaces the original project's canned message and its `hash()` case id with
-    a real ticket and a reply written for this customer.
+    A ticket is created by the `create_ticket` node that follows, so the id is not
+    known here. The reply is therefore written without it and `respond` appends
+    the reference once the ticket exists.
+
+    The model's prose is used only when it looks like prose. Observed against the
+    free models: a reply of "User Safety: safe" came back instead of a handoff,
+    and a ticket id was echoed back as the literal placeholder. Neither may reach
+    a customer, so both fall back to a fixed message.
     """
-    ticket = state.get("ticket")
-    ticket_id = state.get("ticket_id") or (ticket or {}).get("id") or ""
-
-    # A person is waiting, so this reply has to be right even if the LLM is not.
-    fallback = (
-        f"I have passed this to our support team, who will follow up in this "
-        f"conversation. Your reference is {ticket_id}."
-    )
     try:
         response = invoke_with_fallback(
             [
@@ -315,21 +313,57 @@ def escalate(state: SupportState, settings: Settings | None = None) -> dict[str,
             run_id=state.get("run_id"),
             thread_id=state.get("thread_id"),
         )
-        text = message_text(response) or fallback
+        text = usable_handoff(message_text(response))
     except LLMUnavailableError:
         # Never fail a handoff because the prose model is busy.
-        text = fallback
+        text = ""
 
     return {
-        "response": text,
+        "response": text or HANDOFF_FALLBACK,
         "escalate": True,
         "escalated_reason": state.get("needs_human_reason") or "router_decision",
-        "ticket_id": ticket_id or None,
     }
 
 
+# Used when the model does not produce usable prose. Short, warm, and true.
+HANDOFF_FALLBACK = (
+    "I am sorry you are dealing with this. I have passed your request to our support "
+    "team, and a person will follow up in this conversation."
+)
+
+# Shortest text accepted as a handoff. The free models occasionally answer with a
+# fragment or a status token rather than a sentence.
+MIN_HANDOFF_CHARS = 40
+
+# Phrases that mean the model emitted something other than a handoff.
+HANDOFF_REJECT = (
+    "ticket_id",
+    "user safety",
+    "safe\n",
+    "i'm sorry, but i cannot",
+    "i cannot assist",
+    "as an ai",
+)
+
+
+def usable_handoff(text: str) -> str:
+    """Whether a model's handoff can be shown to a customer as-is."""
+    candidate = (text or "").strip()
+    if len(candidate) < MIN_HANDOFF_CHARS:
+        return ""
+    lowered = candidate.lower()
+    if any(marker in lowered for marker in HANDOFF_REJECT):
+        return ""
+    return candidate
+
+
 def respond(state: SupportState) -> dict[str, Any]:
-    """Finalise the reply: make sure it exists, and add the sources used."""
+    """Finalise the reply: make sure it exists, and add what it should cite.
+
+    Runs after `create_ticket`, so an escalated turn knows its ticket id here and
+    can put the reference in the reply. The handoff written by `escalate` was
+    composed before the ticket existed.
+    """
     from .shared import cited
 
     response = (state.get("response") or "").strip()
@@ -342,5 +376,9 @@ def respond(state: SupportState) -> dict[str, Any]:
     if not state.get("unsafe"):
         sources = [p["citation"] for p in (state.get("retrieved") or []) if p.get("citation")]
         response = cited(response, sources)
+
+    ticket_id = state.get("ticket_id")
+    if state.get("escalate") and ticket_id and ticket_id not in response:
+        response = f"{response}\n\nYour reference is {ticket_id}."
 
     return {"response": response}
