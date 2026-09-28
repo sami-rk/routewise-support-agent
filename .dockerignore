@@ -1,0 +1,28 @@
+# Build context
+.git
+.github
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# Generated artefacts: databases, the FAISS index, model caches
+data/*.db
+data/*.db-*
+data/kb_index/
+models/
+*.safetensors
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Not needed to run the service
+tests/
+evals/
+frontend/tests
+README.md
+PROJECT_SPEC.md
