@@ -97,6 +97,8 @@ class SupportState(TypedDict, total=False):
     tools_used: list[str]
     # Set when the LLM layer had to fall back or give up.
     llm_note: str | None
+    # Set when retrieval could not run at all, for the trace and the health check.
+    retrieval_error: str | None
     escalated_reason: str | None
 
 

@@ -157,3 +157,57 @@ class TestRetriever:
     def test_passage_citation_helper(self) -> None:
         assert Passage("t", "a.md", "H").citation == "[a.md › H]"
         assert Passage("t", "a.md", "").citation == "[a.md]"
+
+
+class TestDegradedRetrieval:
+    """A knowledge base that cannot be read is degraded, not broken.
+
+    Without this, a missing embedding model or a corrupt index turns every
+    question into a server error instead of an honest "I am not sure". This is
+    what the CI dependency set, which has no sentence-transformers, relies on.
+    """
+
+    def test_a_missing_index_degrades(self, monkeypatch) -> None:
+        from app.agent.nodes import retrieval
+
+        def missing():
+            raise FileNotFoundError("no index")
+
+        monkeypatch.setattr(retrieval, "get_retriever", missing)
+        result = retrieval.retrieve_kb({"user_input": "How much is the Pro plan?"})
+        assert result["retrieved"] == []
+        assert "nothing relevant" in result["retrieved_context"].lower()
+        assert "retrieval unavailable" in result["retrieved_context"]
+
+    def test_a_missing_embedding_model_degrades(self, monkeypatch) -> None:
+        from app.agent.nodes import retrieval
+
+        def missing():
+            raise ModuleNotFoundError("No module named 'sentence_transformers'")
+
+        monkeypatch.setattr(retrieval, "get_retriever", missing)
+        result = retrieval.retrieve_kb({"user_input": "How much is the Pro plan?"})
+        assert result["retrieved"] == []
+        assert result["retrieval_error"].startswith("ModuleNotFoundError")
+
+    def test_a_corrupt_index_degrades(self, monkeypatch) -> None:
+        from app.agent.nodes import retrieval
+
+        def corrupt():
+            raise ValueError("Index holds 10 vectors but metadata lists 3 passages")
+
+        monkeypatch.setattr(retrieval, "get_retriever", corrupt)
+        result = retrieval.retrieve_kb({"user_input": "anything"})
+        assert result["retrieved"] == []
+        assert "ValueError" in result["retrieval_error"]
+
+    def test_an_empty_query_skips_retrieval_entirely(self, monkeypatch) -> None:
+        from app.agent.nodes import retrieval
+
+        def explode():  # pragma: no cover - must not be called
+            raise AssertionError("retrieval should not run for an empty query")
+
+        monkeypatch.setattr(retrieval, "get_retriever", explode)
+        result = retrieval.retrieve_kb({"user_input": "   "})
+        assert result["retrieved"] == []
+        assert "retrieval_error" not in result
