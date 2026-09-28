@@ -33,12 +33,13 @@ except Exception:  # pragma: no cover
 
 
 class TestQuestions:
-    def test_all_five_questions_are_asked(self) -> None:
+    def test_all_routing_questions_are_asked(self) -> None:
         assert set(QUESTIONS) == {
             "intent",
             "urgency",
             "frustrated",
-            "needs_human",
+            "wants_human",
+            "sensitive",
             "injection",
         }
 
@@ -46,7 +47,8 @@ class TestQuestions:
         assert QUESTIONS["intent"]["type"] == "choice"
         assert QUESTIONS["urgency"]["type"] == "score"
         assert QUESTIONS["frustrated"]["type"] == "noul"
-        assert QUESTIONS["needs_human"]["type"] == "noul"
+        assert QUESTIONS["wants_human"]["type"] == "noul"
+        assert QUESTIONS["sensitive"]["type"] == "noul"
         assert QUESTIONS["injection"]["type"] == "noul"
 
     def test_every_question_has_instructions(self) -> None:
@@ -133,7 +135,8 @@ def sample_payload() -> dict[str, Any]:
                 "probabilities": {"0": 0.01, "1": 0.05, "2": 0.55, "3": 0.3, "4": 0.09},
             },
             "frustrated": {"type": "noul", "noul": 0.12, "confidence": 0.88},
-            "needs_human": {"type": "noul", "noul": 0.05, "confidence": 0.95},
+            "wants_human": {"type": "noul", "noul": 0.05, "confidence": 0.95},
+            "sensitive": {"type": "noul", "noul": 0.02, "confidence": 0.96},
             "injection": {"type": "noul", "noul": 0.02, "confidence": 0.98},
         },
         "routing": {"model": "english", "reason": "english script detected"},
@@ -168,17 +171,24 @@ class TestLayaRouterParsing:
         decision = make_router(sample_payload()).predict("I want a refund")
         assert decision.frustrated is False
         assert decision.frustrated_conf == pytest.approx(0.12)
+        assert decision.wants_human_conf == pytest.approx(0.05)
+        assert decision.sensitive_conf == pytest.approx(0.02)
         assert decision.needs_human is False
-        assert decision.needs_human_conf == pytest.approx(0.05)
         assert decision.injection is False
         assert decision.injection_conf == pytest.approx(0.02)
 
-    def test_high_noul_probability_sets_the_flag(self) -> None:
+    def test_high_wants_human_probability_escalates(self) -> None:
         payload = sample_payload()
-        payload["answers"]["needs_human"]["noul"] = 0.95
+        payload["answers"]["wants_human"]["noul"] = 0.95
         decision = make_router(payload).predict("I want a human")
         assert decision.needs_human is True
-        assert decision.wants_human is True
+        assert decision.needs_human_reason == "asked_for_human"
+
+    def test_legal_wording_escalates_through_the_keyword_backstop(self) -> None:
+        # The model may be unsure, but an explicit legal term is decisive.
+        decision = make_router(sample_payload()).predict("I am calling my lawyer")
+        assert decision.needs_human is True
+        assert decision.needs_human_reason == "keyword:lawyer"
 
     def test_records_the_checkpoint_and_backend(self) -> None:
         decision = make_router(sample_payload()).predict("hello")
@@ -221,7 +231,7 @@ class TestLayaRouterParsing:
         assert decision.intent is None
         assert decision.intent_conf is None
         assert decision.urgency == 0.0
-        assert decision.wants_human is False
+        assert decision.needs_human is False
 
     def test_raw_payload_is_kept_for_the_trace(self) -> None:
         decision = make_router(sample_payload()).predict("hello")

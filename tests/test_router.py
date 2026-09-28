@@ -15,6 +15,7 @@ from app.models.router import (
     FakeRouter,
     RouterDecision,
     build_router_state,
+    combine_needs_human,
     normalise_score,
     probability_of_true,
 )
@@ -74,38 +75,44 @@ def test_specific_topic_wins_over_generic(router: FakeRouter) -> None:
 )
 def test_needs_a_human(router: FakeRouter, message: str) -> None:
     decision = router.predict(message)
-    assert decision.wants_human is True
+    assert decision.needs_human is True
     assert decision.needs_human_conf and decision.needs_human_conf > 0.7
+    assert decision.needs_human_reason
+
+
+def test_escalation_reason_names_the_signal(router: FakeRouter) -> None:
+    assert router.predict("I want a human").needs_human_reason == "asked_for_human"
+    assert router.predict("I am suing you").needs_human_reason == "keyword:suing"
 
 
 def test_ordinary_refund_does_not_ask_for_a_human(router: FakeRouter) -> None:
     # The v1 weakness: "refund" escalated everything.
     decision = router.predict("Can I get a refund under your 14-day policy?")
-    assert decision.wants_human is False
+    assert decision.needs_human is False
     assert decision.intent == "refund"
 
 
 def test_v1_keyword_router_does_escalate_refunds() -> None:
     v1 = FakeRouter(escalate_on_keywords=True)
-    assert v1.predict("Can I get a refund under your 14-day policy?").wants_human is True
+    assert v1.predict("Can I get a refund under your 14-day policy?").needs_human is True
 
 
 def test_v1_keyword_router_misses_legal_words() -> None:
     # "lawyer" and "sue" are not in v1's list at all: a second v1 weakness that
     # the typed decisions fix.
     v1 = FakeRouter(escalate_on_keywords=True)
-    assert v1.predict("I am calling my lawyer about this").wants_human is False
+    assert v1.predict("I am calling my lawyer about this").needs_human is False
 
 
 def test_v1_keyword_router_escalates_ordinary_billing() -> None:
     v1 = FakeRouter(escalate_on_keywords=True)
-    assert v1.predict("why was I charged twice").wants_human is True
+    assert v1.predict("why was I charged twice").needs_human is True
 
 
 def test_v1_keyword_router_ignores_plain_invoices() -> None:
     # v1's list never had "invoice", so an invoice question was not escalated.
     v1 = FakeRouter(escalate_on_keywords=True)
-    assert v1.predict("Can I see my invoice?").wants_human is False
+    assert v1.predict("Can I see my invoice?").needs_human is False
 
 
 @pytest.mark.parametrize(
@@ -133,8 +140,22 @@ def test_injection_threshold_is_respected() -> None:
 
 
 def test_needs_human_threshold_is_respected() -> None:
-    assert RouterDecision(needs_human=True, needs_human_conf=0.6).wants_human is False
-    assert RouterDecision(needs_human=True, needs_human_conf=0.75).wants_human is True
+    # The keyword backstop fires whatever the confidences say.
+    assert RouterDecision(needs_human=True, needs_human_conf=0.0, text="i am suing you").needs_human is True
+    # An explicit request above 0.5 is enough.
+    assert combine_needs_human("", 0.6, 0.0)[0] is True
+    assert combine_needs_human("", 0.4, 0.0)[0] is False
+    # The sensitive signal needs a much higher bar than the request signal.
+    assert combine_needs_human("", 0.0, 0.9)[0] is True
+    assert combine_needs_human("", 0.0, 0.78)[0] is False
+
+
+def test_keyword_backstop_beats_a_low_model_confidence() -> None:
+    # The checkpoint scored 0.78 on a plain refund for the sensitive question;
+    # an explicit legal term must win regardless.
+    needs_human, _conf, reason = combine_needs_human("I want a refund, this is legal action", 0.0, 0.0)
+    assert needs_human is True
+    assert reason and reason.startswith("keyword:")
 
 
 @pytest.mark.parametrize(

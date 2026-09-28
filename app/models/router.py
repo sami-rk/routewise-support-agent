@@ -30,8 +30,36 @@ INTENTS = (
 # over these positions, which is mapped back onto 0..1.
 URGENCY_LEVELS = ("not urgent", "low", "medium", "high", "critical")
 
-# Above this probability on `needs_human`, escalate immediately.
-NEEDS_HUMAN_THRESHOLD = 0.7
+# `needs_human` is the combination of two Laya questions plus a keyword backstop.
+# The thresholds are set from the measured behaviour of the checkpoint: asking for
+# a person is answered confidently, while "is this sensitive" carries a strong
+# prior — a plain refund question scores 0.78 on it — so it needs a much higher bar
+# and is backed by the explicit list below.
+WANTS_HUMAN_THRESHOLD = 0.5
+SENSITIVE_THRESHOLD = 0.85
+# High-precision: these terms are unambiguous, and a message containing one is
+# escalated whatever the model's probability says.
+SENSITIVE_KEYWORDS = (
+    "lawyer",
+    "attorney",
+    "solicitor",
+    "legal action",
+    "sue",
+    "suing",
+    "sued",
+    "fraud",
+    "scam",
+    "data loss",
+    "lost my data",
+    "lost all my files",
+    "lost my files",
+    "security breach",
+    "hacked",
+    "compromised",
+    "breach",
+)
+# Kept for callers that only need one number for "should a person look at this".
+NEEDS_HUMAN_THRESHOLD = SENSITIVE_THRESHOLD
 # Above this probability on `injection`, answer with the safe response.
 INJECTION_THRESHOLD = 0.7
 
@@ -63,11 +91,18 @@ QUESTIONS: dict[str, dict[str, Any]] = {
         "type": "noul",
         "instructions": "Is the customer frustrated or angry?",
     },
-    "needs_human": {
+    "wants_human": {
         "type": "noul",
         "instructions": (
-            "Does the customer ask for a human agent, or is this too sensitive to "
-            "automate (legal threat, fraud, data loss, security breach)?"
+            "Does the customer explicitly ask to speak to a person, such as an agent, "
+            "representative, manager or human?"
+        ),
+    },
+    "sensitive": {
+        "type": "noul",
+        "instructions": (
+            "Does the message mention legal action, a lawyer, fraud, data loss, "
+            "lost files, or a security breach?"
         ),
     },
     "injection": {
@@ -119,6 +154,42 @@ def probability_of_true(answer: dict[str, Any]) -> float:
     if not isinstance(value, (int, float)):
         return 0.0
     return round(min(1.0, max(0.0, float(value))), 4)
+
+
+def combine_needs_human(
+    text: str,
+    wants_human_conf: float | None,
+    sensitive_conf: float | None,
+) -> tuple[bool, float, str | None]:
+    """Decide whether a person has to look at this turn.
+
+    Three signals, in descending order of reliability:
+
+    1. an explicit legal, fraud or data-loss term, which is unambiguous and fires
+       whatever the model said;
+    2. the customer explicitly asking for a person, which the model answers well;
+    3. the model's own read of whether the message is sensitive, which is the
+       weakest of the three and therefore needs the highest bar — a plain refund
+       request scores 0.78 on it.
+
+    Args:
+        text: the routed text.
+        wants_human_conf: P(customer asked for a person).
+        sensitive_conf: P(message is a legal, fraud or data-loss incident).
+
+    Returns:
+        `(needs_human, confidence, reason)`, where `reason` names the signal that
+        decided it, or is None when nothing fired.
+    """
+    lowered = (text or "").lower()
+    for keyword in SENSITIVE_KEYWORDS:
+        if re.search(rf"\b{re.escape(keyword)}", lowered):
+            return True, max(0.95, sensitive_conf or 0.0), f"keyword:{keyword}"
+    if (wants_human_conf or 0.0) > WANTS_HUMAN_THRESHOLD:
+        return True, wants_human_conf or 0.0, "asked_for_human"
+    if (sensitive_conf or 0.0) > SENSITIVE_THRESHOLD:
+        return True, sensitive_conf or 0.0, "sensitive_topic"
+    return False, max(wants_human_conf or 0.0, sensitive_conf or 0.0), None
 
 
 def build_router_state(
@@ -196,8 +267,17 @@ class RouterDecision:
 
     frustrated: bool = False
     frustrated_conf: float | None = None
+
+    # `needs_human` is the escalation decision the graph acts on. It is the
+    # combination of the two questions below and the keyword backstop, so the
+    # raw signals are kept for the trace and the eval.
     needs_human: bool = False
     needs_human_conf: float | None = None
+    wants_human_conf: float | None = None
+    sensitive_conf: float | None = None
+    # Which of the three signals decided the escalation.
+    needs_human_reason: str | None = None
+
     injection: bool = False
     injection_conf: float | None = None
 
@@ -206,6 +286,8 @@ class RouterDecision:
     latency_ms: float | None = None
     # The backend that produced this decision: "laya" or "fake".
     backend: str = "fake"
+    # The text that was routed, kept so the keyword rule can be re-evaluated.
+    text: str = ""
     # The untouched answer payload, for traces and evals.
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -213,11 +295,6 @@ class RouterDecision:
     def is_unsafe(self) -> bool:
         """True when the message looks like a prompt-injection attempt."""
         return self.injection and (self.injection_conf or 0.0) > INJECTION_THRESHOLD
-
-    @property
-    def wants_human(self) -> bool:
-        """True when a human is required, above the confidence threshold."""
-        return self.needs_human and (self.needs_human_conf or 0.0) > NEEDS_HUMAN_THRESHOLD
 
     @property
     def is_angry(self) -> bool:
@@ -240,6 +317,9 @@ class RouterDecision:
             "frustrated_conf": self.frustrated_conf,
             "needs_human": self.needs_human,
             "needs_human_conf": self.needs_human_conf,
+            "wants_human_conf": self.wants_human_conf,
+            "sensitive_conf": self.sensitive_conf,
+            "needs_human_reason": self.needs_human_reason,
             "injection": self.injection,
             "injection_conf": self.injection_conf,
             "model": self.model,
@@ -357,31 +437,17 @@ class FakeRouter:
         "new instructions",
     )
 
+    # Explicit requests for a person. Legal, fraud and data-loss wording is
+    # handled once, for both backends, by `combine_needs_human`.
     HUMAN_MARKERS = (
         "human",
         "real person",
         "actual person",
-        "agent",
         "representative",
         "manager",
         "speak to someone",
         "talk to someone",
         "escalate",
-        "lawyer",
-        "attorney",
-        "solicitor",
-        "legal action",
-        "sue",
-        "suing",
-        "sued",
-        "fraud",
-        "scam",
-        "data loss",
-        "lost my data",
-        "lost my files",
-        "security breach",
-        "hacked",
-        "compromised",
     )
 
     URGENCY_MARKERS = (
@@ -426,8 +492,14 @@ class FakeRouter:
             # v1 in full: its own escalation list is the only signal, so a
             # legal threat phrased without those keywords was missed.
             needs_human, needs_conf = self._noul(text, self.ESCALATION_KEYWORDS)
+            reason = "v1_keyword" if needs_human else None
+            wants_conf, sensitive_conf = needs_conf, 0.0
         else:
-            needs_human, needs_conf = self._noul(text, self.HUMAN_MARKERS)
+            wants_hit, wants_conf = self._noul(text, self.HUMAN_MARKERS)
+            sensitive_conf = 0.0
+            needs_human, needs_conf, reason = combine_needs_human(
+                state, wants_conf if wants_hit else 0.0, 0.0
+            )
 
         urgency, band = self._urgency(text)
 
@@ -441,11 +513,15 @@ class FakeRouter:
             frustrated_conf=frustrated_conf,
             needs_human=needs_human,
             needs_human_conf=needs_conf,
+            wants_human_conf=wants_conf,
+            sensitive_conf=sensitive_conf,
+            needs_human_reason=reason,
             injection=injection,
             injection_conf=injection_conf,
             model="keywords",
             latency_ms=0.0,
             backend="fake",
+            text=state,
             raw={"backend": "fake", "text": state},
         )
 
@@ -544,7 +620,7 @@ class LayaRouter:
     # --- inference ---------------------------------------------------------
 
     def predict(self, state: str) -> RouterDecision:
-        """Answer the five routing questions about one turn.
+        """Answer the routing questions about one turn.
 
         The state is truncated to the checkpoint's context first, so a long
         history cannot push the customer's actual message out of the window.
@@ -567,8 +643,11 @@ class LayaRouter:
 
         urgency, band = normalise_score(urgency_answer, URGENCY_LEVELS)
         frustrated = probability_of_true(answers.get("frustrated") or {})
-        needs_human = probability_of_true(answers.get("needs_human") or {})
+        wants_human = probability_of_true(answers.get("wants_human") or {})
+        sensitive = probability_of_true(answers.get("sensitive") or {})
         injection = probability_of_true(answers.get("injection") or {})
+
+        needs_human, needs_conf, reason = combine_needs_human(state, wants_human, sensitive)
 
         return RouterDecision(
             intent=intent if intent in INTENTS else None,
@@ -578,12 +657,16 @@ class LayaRouter:
             urgency_band=band,
             frustrated=frustrated > 0.5,
             frustrated_conf=frustrated,
-            needs_human=needs_human > 0.5,
-            needs_human_conf=needs_human,
+            needs_human=needs_human,
+            needs_human_conf=needs_conf,
+            wants_human_conf=wants_human,
+            sensitive_conf=sensitive,
+            needs_human_reason=reason,
             injection=injection > 0.5,
             injection_conf=injection,
             model=(payload.get("routing") or {}).get("model") or self.checkpoint,
             backend="laya",
+            text=state,
             raw={
                 "answers": answers,
                 "routing": payload.get("routing"),
