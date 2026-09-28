@@ -1,39 +1,60 @@
-# API and console together, as the spec lists them.
+# API and console together.
 #
 #   docker compose up --build
-#   API      http://localhost:8000/docs
-#   Console  http://localhost:8501
 #
-# The database and the Laya/embedding caches live in named volumes, so they
-# survive a rebuild. Put your OPENROUTER_API_KEY in a .env next to this file.
+# That is the whole thing. The first start seeds the demo database and builds the
+# FAISS index inside the volume, which downloads the local embedding model once
+# and takes a minute or two; the api reports unhealthy until it is done, and the
+# console waits for it. Later starts skip straight to serving.
+#
+#   docker compose up        later runs, starts immediately
+#   docker compose logs -f api
+#   docker compose down      stop, keep the data
+#   docker compose down -v   stop and throw the data away
+#
+# Variables are read from a .env beside this file, or from the shell. Put your
+# OPENROUTER_API_KEY in .env to get live answers; without it the agent replies
+# with the "we are busy" message, because there is no key to spend requests with.
 
 services:
   api:
     build: .
+    image: routewise-support-api
     ports:
       - "8000:8000"
     environment:
-      # `fake` needs no model download. Use `laya` to route with the local model.
+      # `fake` needs no model download and answers in under a millisecond, which
+      # is what makes a one-command first run practical. Set `laya` to route with
+      # the local decision model; that adds a 1.7 GB checkpoint download and
+      # several seconds per turn on a CPU.
       ROUTER_BACKEND: ${ROUTER_BACKEND:-fake}
+      ROUTER_DEVICE: ${ROUTER_DEVICE:-cpu}
+      ROUTER_MIN_CONF: ${ROUTER_MIN_CONF:-0.55}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      # Only ":free" ids and "openrouter/free" are accepted; anything else stops
+      # the container from booting.
       LLM_MODELS: ${LLM_MODELS:-openrouter/free}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.2}
+      REFUND_WINDOW_DAYS: ${REFUND_WINDOW_DAYS:-14}
+      REFUND_AUTO_LIMIT: ${REFUND_AUTO_LIMIT:-20}
+      KB_TOP_K: ${KB_TOP_K:-4}
+      KB_MIN_SCORE: ${KB_MIN_SCORE:-0.35}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-change-me}
+      DATA_DIR: /data
       DB_PATH: /data/support.db
       CHECKPOINT_DB_PATH: /data/checkpoints.db
       KB_DIR: /data/knowledge_base
-      ADMIN_API_KEY: ${ADMIN_API_KEY:-change-me}
     volumes:
       - support-data:/data
-    healthcheck:
-      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+    # The healthcheck comes from the image, so `docker run` is checked too.
+    restart: unless-stopped
 
   ui:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    image: routewise-support-ui
     ports:
       - "8501:8501"
     environment:
@@ -41,7 +62,9 @@ services:
       ADMIN_API_KEY: ${ADMIN_API_KEY:-change-me}
     depends_on:
       api:
+        # Wait for the first-run setup to finish, not just for the port to open.
         condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   support-data:
