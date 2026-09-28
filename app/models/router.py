@@ -176,3 +176,201 @@ class RouterModel(Protocol):
     def health(self) -> dict[str, Any]:
         """Whether this router is loaded and ready."""
         ...
+
+
+class FakeRouter:
+    """Keyword router: the original project's escalation list, made useful.
+
+    No model download and no torch, so the whole test suite runs offline.
+
+    By default it follows v2 policy: keywords pick the *intent*, and only an
+    explicit request for a human (or a legal, fraud or data-loss signal) asks for
+    one. `escalate_on_keywords=True` restores the v1 rule, where hitting any of
+    `ESCALATION_KEYWORDS` escalated unconditionally — that is the baseline the
+    routing eval compares against, and it is why "refund" no longer forces a
+    handoff.
+    """
+
+    name = "fake"
+
+    # The v1 escalation keywords. A hit means a human.
+    ESCALATION_KEYWORDS = (
+        "refund",
+        "lawsuit",
+        "furious",
+        "fraud",
+        "broken",
+        "data loss",
+        "cancel account",
+        "charge",
+        "billing error",
+    )
+
+    # Substring -> intent, checked in this order, so the most specific topic
+    # wins over a generic one ("refund" before "charge").
+    INTENT_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+        (
+            "cancellation",
+            ("cancel", "close my account", "delete my account", "downgrade", "unsubscribe"),
+        ),
+        ("refund", ("refund", "money back", "reimburse", "chargeback")),
+        (
+            "billing",
+            ("invoice", "billing", "bill me", "charged", "charge", "payment", "renew", "receipt"),
+        ),
+        (
+            "pricing",
+            ("pricing", "price", "how much", "per month", "cheaper", "tier"),
+        ),
+        (
+            "technical",
+            ("sync", "crash", "error", "bug", "broken", "not working", "fails", "failed", "stuck"),
+        ),
+        (
+            "account",
+            ("password", "login", "log in", "sign in", "signin", "2fa", "two-factor", "account settings"),
+        ),
+        ("smalltalk", ("hello", "hey", "thanks", "thank you", "cheers", "bye")),
+    )
+
+    # Words that mean the customer is angry, independent of topic.
+    FRUSTRATION_MARKERS = (
+        "furious",
+        "angry",
+        "unacceptable",
+        "ridiculous",
+        "outrageous",
+        "worst",
+        "terrible",
+        "awful",
+        "frustrated",
+        "sick of",
+        "fed up",
+        "still not",
+        "third time",
+    )
+
+    INJECTION_MARKERS = (
+        "ignore previous",
+        "ignore all previous",
+        "disregard your",
+        "you are now",
+        "act as",
+        "pretend you are",
+        "system prompt",
+        "developer mode",
+        "jailbreak",
+        "reveal your instructions",
+        "print your prompt",
+        "new instructions",
+    )
+
+    HUMAN_MARKERS = (
+        "human",
+        "real person",
+        "actual person",
+        "agent",
+        "representative",
+        "manager",
+        "speak to someone",
+        "talk to someone",
+        "escalate",
+        "lawyer",
+        "attorney",
+        "solicitor",
+        "legal action",
+        "sue",
+        "suing",
+        "sued",
+        "fraud",
+        "scam",
+        "data loss",
+        "lost my data",
+        "lost my files",
+        "security breach",
+        "hacked",
+        "compromised",
+    )
+
+    URGENCY_MARKERS = (
+        (
+            "critical",
+            ("data loss", "lost my files", "production down", "hacked", "breach", "sue", "lawyer"),
+        ),
+        (
+            "high",
+            ("urgent", "asap", "immediately", "today", "right now", "deadline", "blocked"),
+        ),
+        ("medium", ("soon", "this week", "quickly")),
+    )
+
+    def __init__(self, *, escalate_on_keywords: bool = False) -> None:
+        self.escalate_on_keywords = escalate_on_keywords
+        self.name = "fake-keyword" if escalate_on_keywords else "fake-keyword-plain"
+
+    def predict(self, state: str) -> RouterDecision:
+        text = (state or "").lower()
+
+        intent = self._intent(text)
+        # A confident keyword decision, comfortably above ROUTER_MIN_CONF.
+        intent_conf = 0.9 if intent != "smalltalk" else 0.7
+        probs = {name: 0.01 for name in INTENTS}
+        probs[intent] = intent_conf
+
+        needs_human, needs_conf = self._noul(text, self.HUMAN_MARKERS)
+        frustrated, frustrated_conf = self._noul(text, self.FRUSTRATION_MARKERS)
+        injection, injection_conf = self._noul(text, self.INJECTION_MARKERS)
+
+        if self.escalate_on_keywords and self._matches(text, self.ESCALATION_KEYWORDS):
+            # v1 behaviour: these keywords escalated unconditionally.
+            needs_human, needs_conf = True, max(needs_conf, 0.95)
+
+        urgency, band = self._urgency(text)
+
+        return RouterDecision(
+            intent=intent,
+            intent_conf=intent_conf,
+            intent_probs=probs,
+            urgency=urgency,
+            urgency_band=band,
+            frustrated=frustrated,
+            frustrated_conf=frustrated_conf,
+            needs_human=needs_human,
+            needs_human_conf=needs_conf,
+            injection=injection,
+            injection_conf=injection_conf,
+            model="keywords",
+            latency_ms=0.0,
+            backend="fake",
+            raw={"backend": "fake", "text": state},
+        )
+
+    def health(self) -> dict[str, Any]:
+        return {
+            "backend": "fake",
+            "loaded": True,
+            "model": "keywords",
+            "escalate_on_keywords": self.escalate_on_keywords,
+        }
+
+    # --- helpers -----------------------------------------------------------
+
+    @staticmethod
+    def _matches(text: str, markers: tuple[str, ...]) -> bool:
+        return any(marker in text for marker in markers)
+
+    def _noul(self, text: str, markers: tuple[str, ...]) -> tuple[bool, float]:
+        hit = self._matches(text, markers)
+        return hit, 0.9 if hit else 0.05
+
+    def _intent(self, text: str) -> str:
+        for intent, keywords in self.INTENT_KEYWORDS:
+            if self._matches(text, keywords):
+                return intent
+        return "product_info"
+
+    def _urgency(self, text: str) -> tuple[float, str]:
+        for band, markers in self.URGENCY_MARKERS:
+            if self._matches(text, markers):
+                return round(URGENCY_LEVELS.index(band) / (len(URGENCY_LEVELS) - 1), 4), band
+        return 0.25, "low"
