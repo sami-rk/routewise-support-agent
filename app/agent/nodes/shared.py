@@ -29,13 +29,19 @@ def message_text(response: Any) -> str:
 
 
 def tool_result_message(call: dict[str, Any], content: str) -> Any:
-    """A `ToolMessage` carrying one tool's result back to the model."""
+    """A `ToolMessage` carrying one tool's result back to the model.
+
+    The call's arguments ride along in `artifact`, so a node can read what a tool
+    was asked to do without parsing the conversation. That is how a refund
+    proposal reaches the approval gate.
+    """
     from langchain_core.messages import ToolMessage
 
     return ToolMessage(
         content=content,
         tool_call_id=call.get("id", "call_0"),
         name=call.get("name", "tool"),
+        artifact=dict(call.get("args") or {}),
     )
 
 

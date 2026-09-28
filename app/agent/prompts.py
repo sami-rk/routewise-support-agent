@@ -95,13 +95,13 @@ def billing_system_prompt(context: dict[str, Any], state: dict[str, Any]) -> str
         "- A charge older than 14 days is not refundable. Say so politely and cite "
         "the policy.\n"
         "- Never promise a refund before checking eligibility with the tool.",
-        "\nTo propose an action, end your reply with a single line in exactly this "
-        "form and nothing after it:\n"
-        "ACTION: {\"type\": \"refund\", \"invoice_id\": \"<id>\", \"amount\": <number>}\n"
-        "or\n"
-        "ACTION: {\"type\": \"cancel\"}\n"
-        "Include that line only when the customer actually asked for it and you have "
-        "the details. Otherwise leave it out.",
+        "\nTo propose an action, call the matching tool rather than describing it: "
+        "propose_refund for a refund, propose_cancellation for a cancellation. Call "
+        "one only when the customer actually asked for that and you have already "
+        "checked eligibility. Then tell the customer, in plain words, what happens "
+        "next: a refund of $20 or less is issued straight away, a larger one goes to "
+        "a specialist for approval, and a cancellation is confirmed by the customer "
+        "before anything is cancelled.",
         f"\n{_customer_block(context)}" if context else "",
         "\nCONTEXT:\n" + (state.get("retrieved_context") or "(nothing retrieved)"),
         _tone_block(state),

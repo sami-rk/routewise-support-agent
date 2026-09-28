@@ -31,6 +31,8 @@ BILLING_TOOLS: tuple[str, ...] = (
     "get_subscription",
     "list_invoices",
     "check_refund_eligibility",
+    "propose_refund",
+    "propose_cancellation",
 )
 TECHNICAL_TOOLS: tuple[str, ...] = ("lookup_customer", "get_subscription")
 TICKET_TOOLS: tuple[str, ...] = ("get_ticket_status",)
@@ -41,6 +43,11 @@ LLM_TOOLS: tuple[str, ...] = (
     "get_subscription",
     "list_invoices",
     "check_refund_eligibility",
+    # These record a *proposal* and do nothing themselves. They exist because
+    # free models follow a tool schema reliably and an `ACTION: {json}` line in
+    # prose not at all.
+    "propose_refund",
+    "propose_cancellation",
     "get_ticket_status",
 )
 
@@ -176,11 +183,39 @@ def build_tools(customer_id: str | None, *, invoice_id: str | None = None) -> di
         except tickets.UnknownTicketError:
             raise ToolError(f"I could not find a ticket with the id {ticket_id!r}.")
 
+    @tool
+    def propose_refund(invoice_id: str, amount: float, reason: str) -> str:
+        """Propose a refund of an invoice. This does NOT issue it; the system
+        decides, and a person approves anything above the limit.
+
+        Call this only when the customer has actually asked for a refund, you have
+        already checked eligibility with check_refund_eligibility, and it was
+        eligible. Never call it to promise a refund you have not checked.
+
+        Args:
+            invoice_id: the invoice to refund.
+            amount: how much to refund, no more than the eligible amount.
+            reason: why, in the customer's own terms.
+        """
+        return json.dumps({"status": "proposed", "type": "refund", "invoice_id": invoice_id})
+
+    @tool
+    def propose_cancellation() -> str:
+        """Propose cancelling this customer's subscription.
+
+        Call this only when the customer has asked to cancel. This does NOT cancel
+        anything: the customer is asked to confirm first, and the system does the
+        rest.
+        """
+        return json.dumps({"status": "proposed", "type": "cancel"})
+
     return {
         "lookup_customer": lookup_customer,
         "get_subscription": get_subscription,
         "list_invoices": list_invoices,
         "check_refund_eligibility": check_refund_eligibility,
+        "propose_refund": propose_refund,
+        "propose_cancellation": propose_cancellation,
         "get_ticket_status": get_ticket_status,
     }
 

@@ -45,6 +45,103 @@ def interrupt_of(result: dict) -> dict | None:
     return getattr(first, "value", first)
 
 
+class TestToolProposedActions:
+    """The reliable path: the model calls a proposal tool.
+
+    Free models follow a tool schema but do not reliably emit an `ACTION: {json}`
+    line in prose, so the proposal tools are what the graph actually relies on.
+    """
+
+    def test_a_refund_proposed_by_tool_is_issued(self, persistent_graph) -> None:
+        proposal = {
+            "content": "",
+            "tool_calls": [
+                {
+                    "name": "propose_refund",
+                    "args": {
+                        "invoice_id": "inv_ada_current",
+                        "amount": 19.0,
+                        "reason": "customer asked",
+                    },
+                }
+            ],
+        }
+        with ScriptedLLM(
+            [proposal, "I have refunded $19.00 to your original payment method."]
+        ):
+            result = persistent_graph.invoke(
+                user_turn("I was charged 5 days ago and want a refund"),
+                thread_config("t-tool-refund"),
+            )
+        assert result.get("__interrupt__") is None
+        assert result["action_result"]["ok"] is True
+        assert result["action_result"]["amount"] == 19.0
+
+    def test_a_tool_proposed_refund_really_happens(self, persistent_graph) -> None:
+        proposal = {
+            "content": "",
+            "tool_calls": [
+                {
+                    "name": "propose_refund",
+                    "args": {"invoice_id": "inv_ada_current", "amount": 19.0, "reason": "asked"},
+                }
+            ],
+        }
+        with ScriptedLLM([proposal, "Refunded."]):
+            persistent_graph.invoke(
+                user_turn("I was charged 5 days ago and want a refund"),
+                thread_config("t-tool-refund2"),
+            )
+        rows = query_all("SELECT * FROM refunds WHERE invoice_id = 'inv_ada_current'")
+        assert len(rows) == 1
+
+    def test_a_tool_proposed_large_refund_pauses(self, persistent_graph) -> None:
+        proposal = {
+            "content": "",
+            "tool_calls": [
+                {
+                    "name": "propose_refund",
+                    "args": {"invoice_id": "inv_barbara_current", "amount": 49.0, "reason": "asked"},
+                }
+            ],
+        }
+        with ScriptedLLM([proposal, "It is with our team."]):
+            result = persistent_graph.invoke(
+                user_turn("refund the 49 dollars please", customer_id="cus_barbara"),
+                thread_config("t-tool-big"),
+            )
+        payload = interrupt_of(result)
+        assert payload is not None
+        assert payload["mode"] == "staff_approve"
+        assert payload["amount"] == 49.0
+
+    def test_a_tool_proposed_cancellation_waits_for_the_customer(self, persistent_graph) -> None:
+        proposal = {"content": "", "tool_calls": [{"name": "propose_cancellation", "args": {}}]}
+        with ScriptedLLM([proposal, "cancelling"]):
+            result = persistent_graph.invoke(
+                user_turn("Cancel my subscription"), thread_config("t-tool-cancel")
+            )
+        assert interrupt_of(result)["mode"] == "customer_confirm"
+
+    def test_a_tool_never_calls_the_gate_without_asking(self, persistent_graph) -> None:
+        # A proposal the policy rejects is declined, not sent for approval.
+        proposal = {
+            "content": "",
+            "tool_calls": [
+                {
+                    "name": "propose_refund",
+                    "args": {"invoice_id": "inv_alan_current", "amount": 49.0, "reason": "asked"},
+                }
+            ],
+        }
+        with ScriptedLLM([proposal, "That charge is outside the window."]):
+            result = persistent_graph.invoke(
+                user_turn("refund the 49 dollars", customer_id="cus_alan"),
+                thread_config("t-tool-reject"),
+            )
+        assert query_all("SELECT * FROM refunds WHERE invoice_id = 'inv_alan_current'") == []
+
+
 class TestSmallRefundIsAutomatic:
     def test_a_refund_under_the_limit_runs_without_asking_anyone(
         self, persistent_graph
