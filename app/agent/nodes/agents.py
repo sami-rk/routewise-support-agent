@@ -21,7 +21,7 @@ from langchain_core.messages import SystemMessage
 from ...config import Settings, get_settings
 from ...models.llm import BUSY_MESSAGE, LLMUnavailableError
 from ...models.llm_runner import invoke_with_fallback
-from ...tools.registry import ToolError, tools_for_agent
+from ...tools.registry import ToolError, tools_for_action, tools_for_agent
 from .. import prompts
 from ..state import SupportState
 from .retrieval import NOTHING_FOUND, has_context
@@ -376,13 +376,126 @@ def faq_agent(state: SupportState, settings: Settings | None = None) -> dict[str
 
 def billing_agent(state: SupportState, settings: Settings | None = None) -> dict[str, Any]:
     """Subscriptions, invoices, refunds and cancellations, with tools."""
-    return run_agent(
+    result = run_agent(
         state,
         role="billing",
         agent="billing",
         system_prompt=lambda s: prompts.billing_system_prompt(s.get("customer_facts") or {}, s),
         settings=settings,
     )
+    if result.get("pending_action") is None and customer_asked_for_action(state):
+        # The model explained the situation but never asked to act. Rather than
+        # leave a customer waiting on a refund that was never proposed, ask once
+        # more, with the narrowest possible instruction. One extra call, and only
+        # in the case where an action was expected.
+        action = _ask_for_action(state, settings)
+        if action:
+            result["pending_action"] = action
+            result["wants_ticket"] = False
+    return result
+
+
+# Intents where the customer is asking for something to happen, not asking a
+# question about it.
+ACTION_INTENTS = {"refund", "cancellation"}
+
+
+def customer_asked_for_action(state: SupportState) -> bool:
+    """Whether this turn should end in a proposed action.
+
+    Only the router's intent decides it. Reading the model's prose for phrases
+    like "I have refunded" would let a model talk itself into moving money, which
+    is exactly the failure this design exists to prevent.
+    """
+    return state.get("intent") in ACTION_INTENTS
+
+
+def _ask_for_action(state: SupportState, settings: Settings | None = None) -> dict[str, Any] | None:
+    """One focused call asking for a single tool call, and nothing else.
+
+    Returns:
+        The action, or None if the model still did not propose one.
+    """
+    settings = settings or get_settings()
+    customer_id = state.get("customer_id")
+    if not customer_id:
+        return None
+
+    try:
+        tools = tools_for_action(customer_id)
+    except ToolError:
+        return None
+
+    eligible = _eligible_summary(customer_id, settings)
+    if not eligible:
+        return None
+
+    instruction = (
+        "You are handling a billing request for CloudSync Pro.\n\n"
+        f"The customer said: {state.get('user_input', '')}\n\n"
+        f"What is known about their account:\n{eligible}\n\n"
+        "Call exactly one tool and write nothing else:\n"
+        "- propose_refund if they asked for a refund of a charge that is eligible\n"
+        "- propose_cancellation if they asked to cancel the subscription\n"
+        "Do not explain. Do not apologise. Call the tool."
+    )
+
+    try:
+        from langchain_core.messages import HumanMessage
+
+        response = invoke_with_fallback(
+            [SystemMessage(instruction), HumanMessage(state.get("user_input") or "")],
+            role="billing",
+            settings=settings,
+            tools=tools,
+            record=True,
+            run_id=state.get("run_id"),
+            thread_id=state.get("thread_id"),
+        )
+    except LLMUnavailableError:
+        return None
+
+    observations = []
+    for call in getattr(response, "tool_calls", None) or []:
+        observations.append(tool_result_message(call, "recorded"))
+    action = _proposed_action(message_text(response), observations)
+    if action and action.get("type") == "cancel":
+        return {"type": "cancel"}
+    if action and action.get("type") == "refund" and action.get("invoice_id"):
+        return action
+    return None
+
+
+def _eligible_summary(customer_id: str, settings: Settings) -> str:
+    """The facts the model needs to choose, read from the database."""
+    from ...tools.billing import list_invoices
+    from ...tools.refunds import UnknownInvoiceError, check_refund_eligibility, find_refundable_invoice
+
+    try:
+        found = find_refundable_invoice(customer_id, settings=settings)
+    except Exception:  # noqa: BLE001
+        found = None
+
+    lines = []
+    if found:
+        lines.append(
+            f"- refundable charge: {found['invoice_id']} for ${found['max_amount']:.2f} "
+            f"({found['age_days']} days old, "
+            f"{'needs staff approval' if found['needs_approval'] else 'auto-approved'})"
+        )
+    else:
+        recent = list_invoices(customer_id, limit=1)
+        if recent:
+            latest = recent[0]
+            try:
+                check = check_refund_eligibility(latest["id"], settings=settings)
+                lines.append(
+                    f"- most recent charge: {latest['id']} for ${latest['amount']:.2f} "
+                    f"({check['age_days']} days old, not eligible: {check['reason']})"
+                )
+            except UnknownInvoiceError:
+                pass
+    return "\n".join(lines)
 
 
 def technical_agent(state: SupportState, settings: Settings | None = None) -> dict[str, Any]:

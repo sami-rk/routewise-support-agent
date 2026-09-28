@@ -225,6 +225,17 @@ def select_tools(all_tools: dict[str, BaseTool], allowed: tuple[str, ...]) -> li
     return [all_tools[name] for name in allowed if name in all_tools]
 
 
+def tools_for_action(customer_id: str | None) -> list[BaseTool]:
+    """Only the two proposal tools, for the focused "please just call one" retry.
+
+    A smaller schema is the point: the retry exists because the full billing
+    schema did not produce a call, and a two-tool prompt gives a weak model the
+    best chance of complying.
+    """
+    built = build_tools(customer_id)
+    return [built["propose_refund"], built["propose_cancellation"]]
+
+
 def tools_for_agent(
     customer_id: str | None,
     agent: str,
@@ -263,5 +274,6 @@ __all__ = [
     "UnknownCustomerError",
     "build_tools",
     "select_tools",
+    "tools_for_action",
     "tools_for_agent",
 ]

@@ -142,6 +142,74 @@ class TestToolProposedActions:
         assert query_all("SELECT * FROM refunds WHERE invoice_id = 'inv_alan_current'") == []
 
 
+class TestActionProposalRetry:
+    """When the model explains but never proposes, it is asked once more.
+
+    Observed against the live free models: they would explain the refund policy
+    accurately and then not call anything, leaving the customer waiting on an
+    action nobody had proposed.
+    """
+
+    def test_a_refund_is_proposed_even_if_the_first_reply_only_explains(
+        self, persistent_graph
+    ) -> None:
+        explains = "That charge is 5 days old so it is inside the 14-day window."
+        proposal = {
+            "content": "",
+            "tool_calls": [
+                {
+                    "name": "propose_refund",
+                    "args": {"invoice_id": "inv_ada_current", "amount": 19.0, "reason": "asked"},
+                }
+            ],
+        }
+        with ScriptedLLM([explains, proposal, "I have refunded $19.00."]):
+            result = persistent_graph.invoke(
+                user_turn("I was charged 5 days ago and want a refund"),
+                thread_config("t-retry"),
+            )
+        assert result["action_result"]["ok"] is True
+        assert query_all("SELECT * FROM refunds WHERE invoice_id = 'inv_ada_current'")
+
+    def test_the_retry_does_not_run_when_the_model_already_proposed(self, persistent_graph) -> None:
+        # Only two replies are scripted: a third call would raise, proving the
+        # retry did not happen.
+        proposal = {
+            "content": "",
+            "tool_calls": [
+                {
+                    "name": "propose_refund",
+                    "args": {"invoice_id": "inv_ada_current", "amount": 19.0, "reason": "asked"},
+                }
+            ],
+        }
+        with ScriptedLLM([proposal, "Refunded."]):
+            result = persistent_graph.invoke(
+                user_turn("I was charged 5 days ago and want a refund"),
+                thread_config("t-retry-none"),
+            )
+        assert result["action_result"]["ok"] is True
+
+    def test_no_retry_for_a_question_rather_than_a_request(self, persistent_graph) -> None:
+        # A billing *question* is not a request to act, so the retry must not run
+        # and must not invent an action. Only two replies are scripted.
+        with ScriptedLLM(["You were charged $19.00 on the 10th.", "It was $19.00."]):
+            result = persistent_graph.invoke(
+                user_turn("how much did you charge me"), thread_config("t-retry-q")
+            )
+        assert result["pending_action"] is None
+
+    def test_a_refund_outside_the_window_is_not_proposed_on_retry(self, persistent_graph) -> None:
+        explains = "That charge is 20 days old, outside the window."
+        with ScriptedLLM([explains, "It is outside the refund window."]):
+            result = persistent_graph.invoke(
+                user_turn("I want my money back", customer_id="cus_alan"),
+                thread_config("t-retry-old"),
+            )
+        assert result.get("action_result") in (None, {"ok": False})
+        assert query_all("SELECT * FROM refunds WHERE invoice_id = 'inv_alan_current'") == []
+
+
 class TestSmallRefundIsAutomatic:
     def test_a_refund_under_the_limit_runs_without_asking_anyone(
         self, persistent_graph
