@@ -36,6 +36,13 @@ MAX_TOOL_STEPS = 2
 # An agent proposes a money or cancellation action with a line like this.
 ACTION_RE = re.compile(r"ACTION:\s*(\{.*?\})\s*$", re.IGNORECASE | re.DOTALL | re.MULTILINE)
 
+# Said when the model's whole reply was a tool call and there is no prose to show.
+PENDING_SUMMARY = {
+    "refund": "I have sent that refund for approval and will confirm once it is approved.",
+    "cancel": "Before I cancel your subscription, please confirm below.",
+    "ticket": "Let me open a ticket so someone can look at this properly.",
+}
+
 
 def trim_for_prompt(messages: list[Any], keep: int = 8) -> list[Any]:
     """The most recent exchanges, so a long thread stays cheap to answer."""
@@ -113,8 +120,12 @@ def run_agent(
         observations = _run_calls(calls, tools, tool_names, tools_used)
 
     action = _proposed_action(answer, observations)
+    reply = strip_action_line(strip_tool_call_json(answer))
+    if not reply and action is not None:
+        # The model only emitted the call. Say something rather than nothing.
+        reply = PENDING_SUMMARY.get(action.get("type", ""), "I have passed that on for you.")
     return {
-        "response": strip_action_line(answer),
+        "response": reply,
         "tools_used": tools_used,
         "pending_action": action,
         "wants_ticket": bool(action and action.get("type") == "ticket"),
@@ -154,28 +165,152 @@ def _run_calls(
 def _proposed_action(answer: str, observations: list[Any]) -> dict[str, Any] | None:
     """The action the agent proposed, from a tool call or from the reply.
 
-    A tool call is preferred: free models follow a tool schema far more reliably
-    than a bare `ACTION: {...}` line, and the arguments arrive already parsed.
-    The line format is still accepted, for models that manage it.
+    Three shapes are accepted, in order of reliability:
+
+    1. a structured tool call, which is what a well-behaved model produces;
+    2. a tool call written into the reply as JSON, which is what the free models
+       on OpenRouter actually do often enough to matter;
+    3. the `ACTION: {...}` line, for models that manage that.
     """
     for observation in observations:
-        name = getattr(observation, "name", None)
-        if name == "propose_refund":
-            arguments = _tool_arguments(observation)
-            if arguments:
-                return {
-                    "type": "refund",
-                    "invoice_id": arguments.get("invoice_id"),
-                    "amount": arguments.get("amount"),
-                    "reason": arguments.get("reason"),
-                }
-        if name == "propose_cancellation":
-            return {"type": "cancel"}
+        action = _action_from_tool_name(
+            getattr(observation, "name", None), _tool_arguments(observation)
+        )
+        if action:
+            return action
 
-    action = parse_action(answer)
-    if action and action.get("type") == "cancel":
+    action = _action_from_text(answer)
+    if action:
+        return action
+
+    return parse_action(answer)
+
+
+def _action_from_tool_name(name: str | None, arguments: dict[str, Any]) -> dict[str, Any] | None:
+    if name == "propose_refund":
+        return {
+            "type": "refund",
+            "invoice_id": arguments.get("invoice_id"),
+            "amount": arguments.get("amount"),
+            "reason": arguments.get("reason"),
+        }
+    if name == "propose_cancellation":
         return {"type": "cancel"}
-    return action
+    if name == "propose_ticket" or (name == "propose_ticket" and arguments.get("subject")):
+        return {"type": "ticket", "subject": arguments.get("subject")}
+    return None
+
+
+# The shapes a model writes when it emits a tool call as text instead of using the
+# structured field. Seen in the wild on the OpenRouter free tier.
+_TOOL_CALL_KEYS = (("tool", "arguments"), ("name", "args"), ("name", "arguments"), ("function", None))
+
+
+def _json_spans(text: str) -> list[tuple[int, int, Any]]:
+    """Every balanced `{...}` in `text` as `(start, end, parsed)`, longest first.
+
+    A tool call written as text nests its arguments, so a flat regex would stop at
+    the first inner brace. Scanning with a depth counter finds the whole object.
+    """
+    import json
+
+    found: list[tuple[int, int, Any]] = []
+    depth = 0
+    start = -1
+    in_string = False
+    escaped = False
+
+    for index, char in enumerate(text or ""):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            if depth == 0:
+                start = index
+            depth += 1
+        elif char == "}":
+            if depth > 0:
+                depth -= 1
+                if depth == 0 and start >= 0:
+                    blob = text[start : index + 1]
+                    try:
+                        found.append((start, index + 1, json.loads(blob)))
+                    except json.JSONDecodeError:
+                        pass
+                    start = -1
+    return sorted(found, key=lambda span: span[0] - span[1])
+
+
+def _as_arguments(value: Any) -> dict[str, Any]:
+    """Coerce tool arguments to a dict, parsing them if they arrived as a string."""
+    import json
+
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _action_from_payload(payload: Any) -> dict[str, Any] | None:
+    """Read a proposal out of one parsed JSON object, if it names one."""
+    if not isinstance(payload, dict):
+        return None
+    for name_key, args_key in _TOOL_CALL_KEYS:
+        if name_key not in payload:
+            continue
+        name = payload[name_key]
+        if isinstance(name, dict):  # OpenAI-shaped {"function": {...}}
+            arguments = _as_arguments(name.get("arguments"))
+            name = name.get("name")
+        else:
+            arguments = _as_arguments(payload.get(args_key))
+        if not name:
+            continue
+        action = _action_from_tool_name(str(name), arguments)
+        # A proposal with no details is not usable: the gate needs the invoice,
+        # and a refund without one would be refused anyway.
+        if action and (action["type"] != "refund" or action.get("invoice_id")):
+            return action
+    return None
+
+
+def _action_from_text(answer: str) -> dict[str, Any] | None:
+    """Find a tool call written as JSON in the reply.
+
+    Only the *proposal* tools are honoured, and only when the JSON names one with
+    usable arguments, so a model that hallucinates a `create_refund` call, or
+    proposes a refund with no invoice, gets nothing.
+    """
+    for _start, _end, payload in _json_spans(answer or ""):
+        action = _action_from_payload(payload)
+        if action:
+            return action
+    return None
+
+
+def strip_tool_call_json(text: str) -> str:
+    """Remove a tool call written as JSON, so it is not shown to a customer."""
+    cuts = [
+        (start, end)
+        for start, end, payload in _json_spans(text or "")
+        if _action_from_payload(payload) is not None
+    ]
+    cleaned = text or ""
+    for start, end in sorted(cuts, reverse=True):
+        cleaned = cleaned[:start] + cleaned[end:]
+    return cleaned.strip()
 
 
 def _tool_arguments(message: Any) -> dict[str, Any]:
