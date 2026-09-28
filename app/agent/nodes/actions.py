@@ -231,7 +231,7 @@ def execute_action(state: SupportState, settings: Settings | None = None) -> dic
             eligibility = refunds.check_refund_eligibility(invoice_id, settings=settings)
             if not eligibility["eligible"]:
                 return {
-                    "action_result": {"ok": False, "reason": eligibility["reason"]},
+                    "action_result": {"ok": False, "type": "refund", "reason": eligibility["reason"]},
                     "response": eligibility["reason"],
                 }
             amount = min(float(action.get("amount") or 0.0), eligibility["max_amount"])
@@ -243,7 +243,7 @@ def execute_action(state: SupportState, settings: Settings | None = None) -> dic
                 settings=settings,
             )
             return {
-                "action_result": {"ok": True, **result},
+                "action_result": {"ok": True, "type": "refund", **result},
                 "response": (
                     f"I have refunded ${result['amount']:.2f} to your original payment method. "
                     "Your bank usually shows it within 5 to 10 business days "
@@ -256,7 +256,7 @@ def execute_action(state: SupportState, settings: Settings | None = None) -> dic
                 customer_id or "", approved_by=state.get("approved_by")
             )
             return {
-                "action_result": {"ok": True, **result},
+                "action_result": {"ok": True, "type": "cancel", **result},
                 "response": (
                     "Your subscription is cancelled. You keep access until the end of the "
                     "period you have already paid for, and your files stay on your devices "
