@@ -1,0 +1,76 @@
+{"id": "pricing_01", "text": "How much is the Pro plan and how many devices does it support?", "intent": "pricing", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "pricing_02", "text": "What plans do you offer?", "intent": "pricing", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "pricing_03", "text": "Is the Business plan cheaper per month than Pro?", "intent": "pricing", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "pricing_04", "text": "How much storage do I get on the Basic plan?", "intent": "pricing", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "pricing_05", "text": "What does the Pro tier include?", "intent": "pricing", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "pricing_06", "text": "Do you have a cheaper plan for just one person?", "intent": "pricing", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "pricing_07", "text": "What is the price of 5TB storage?", "intent": "pricing", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "pricing_08", "text": "Can I upgrade to Business without paying again this month?", "intent": "pricing", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "pricing_09", "text": "Which plan supports unlimited devices?", "intent": "pricing", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "pricing_10", "text": "What is the monthly cost of the smallest plan?", "intent": "pricing", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "billing_01", "text": "Can I see my latest invoice?", "intent": "billing", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "billing_02", "text": "Why was I billed twice this month?", "intent": "billing", "urgency_band": "medium", "frustrated": true, "needs_human": false}
+{"id": "billing_03", "text": "When is my subscription renewing?", "intent": "billing", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "billing_04", "text": "I need a receipt for last month's payment", "intent": "billing", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "billing_05", "text": "My card was declined, can you check the payment method?", "intent": "billing", "urgency_band": "high", "frustrated": true, "needs_human": false}
+{"id": "billing_06", "text": "How much did you charge me on the 3rd?", "intent": "billing", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "billing_07", "text": "There is a billing error on my account, the amount is wrong", "intent": "billing", "urgency_band": "medium", "frustrated": true, "needs_human": false}
+{"id": "billing_08", "text": "Can you send my invoice to a different email address?", "intent": "billing", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "billing_09", "text": "What payment methods do you accept?", "intent": "billing", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "billing_10", "text": "My renewal went through but the plan did not change", "intent": "billing", "urgency_band": "medium", "frustrated": true, "needs_human": false}
+{"id": "refund_01", "text": "I was charged 5 days ago and want a refund", "intent": "refund", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "refund_02", "text": "Can I get a refund under your 14-day policy?", "intent": "refund", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "refund_03", "text": "I would like my money back for last month", "intent": "refund", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "refund_04", "text": "You charged me twice, please refund the duplicate", "intent": "refund", "urgency_band": "medium", "frustrated": true, "needs_human": false}
+{"id": "refund_05", "text": "How do I request a reimbursement?", "intent": "refund", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "refund_06", "text": "I want to return the plan and get a refund", "intent": "refund", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "refund_07", "text": "Can you refund the $49 I paid on Tuesday?", "intent": "refund", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "refund_08", "text": "I stopped using the service, I would like a refund", "intent": "refund", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "refund_09", "text": "Please reverse the charge on my card", "intent": "refund", "urgency_band": "medium", "frustrated": false, "needs_human": false}
+{"id": "refund_10", "text": "Am I eligible for a refund on my last invoice?", "intent": "refund", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "cancellation_01", "text": "Cancel my subscription", "intent": "cancellation", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "cancellation_02", "text": "I want to close my account permanently", "intent": "cancellation", "urgency_band": "medium", "frustrated": false, "needs_human": false}
+{"id": "cancellation_03", "text": "Please end my subscription at the end of the month", "intent": "cancellation", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "cancellation_04", "text": "I want to downgrade from Business to Pro", "intent": "cancellation", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "cancellation_05", "text": "Delete my account and all my data please", "intent": "cancellation", "urgency_band": "medium", "frustrated": false, "needs_human": false}
+{"id": "cancellation_06", "text": "How do I unsubscribe?", "intent": "cancellation", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "cancellation_07", "text": "I do not want to renew, stop the automatic renewal", "intent": "cancellation", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "cancellation_08", "text": "Can I pause my subscription instead of cancelling?", "intent": "cancellation", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "technical_01", "text": "My files stopped syncing yesterday", "intent": "technical", "urgency_band": "medium", "frustrated": true, "needs_human": false}
+{"id": "technical_02", "text": "The desktop app crashes on startup", "intent": "technical", "urgency_band": "medium", "frustrated": true, "needs_human": false}
+{"id": "technical_03", "text": "Sync is stuck at 99 percent and never finishes", "intent": "technical", "urgency_band": "medium", "frustrated": true, "needs_human": false}
+{"id": "technical_04", "text": "I get an error code 403 when I try to open a shared folder", "intent": "technical", "urgency_band": "medium", "frustrated": true, "needs_human": false}
+{"id": "technical_05", "text": "The app is frozen on my Android phone", "intent": "technical", "urgency_band": "medium", "frustrated": true, "needs_human": false}
+{"id": "technical_06", "text": "Is the Linux client still in beta?", "intent": "technical", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "technical_07", "text": "My upload keeps failing on large files", "intent": "technical", "urgency_band": "medium", "frustrated": true, "needs_human": false}
+{"id": "technical_08", "text": "Two devices show different versions of the same folder", "intent": "technical", "urgency_band": "medium", "frustrated": true, "needs_human": false}
+{"id": "technical_09", "text": "The mobile app will not let me sign in", "intent": "technical", "urgency_band": "high", "frustrated": true, "needs_human": false}
+{"id": "technical_10", "text": "Offline mode is not working as documented", "intent": "technical", "urgency_band": "low", "frustrated": true, "needs_human": false}
+{"id": "account_01", "text": "I forgot my password", "intent": "account", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "account_02", "text": "The password reset link says it has expired", "intent": "account", "urgency_band": "low", "frustrated": true, "needs_human": false}
+{"id": "account_03", "text": "How do I change the email on my account?", "intent": "account", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "account_04", "text": "I cannot sign in, it keeps rejecting my password", "intent": "account", "urgency_band": "high", "frustrated": true, "needs_human": false}
+{"id": "account_05", "text": "How do I turn on two-factor authentication?", "intent": "account", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "account_06", "text": "Please update my billing email for receipts", "intent": "account", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "account_07", "text": "How long does a password reset link stay valid?", "intent": "account", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "account_08", "text": "I am locked out after too many login attempts", "intent": "account", "urgency_band": "high", "frustrated": true, "needs_human": false}
+{"id": "account_09", "text": "Where can I see who has access to my shared folders?", "intent": "account", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "account_10", "text": "How do I log out of all my devices?", "intent": "account", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "product_info_01", "text": "What does CloudSync Pro actually do?", "intent": "product_info", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "product_info_02", "text": "How many devices can sync at the same time?", "intent": "product_info", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "product_info_03", "text": "Does offline mode keep working without internet?", "intent": "product_info", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "product_info_04", "text": "How long do you keep version history?", "intent": "product_info", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "product_info_05", "text": "Which platforms are supported?", "intent": "product_info", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "product_info_06", "text": "What is the maximum file size I can upload?", "intent": "product_info", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "product_info_07", "text": "Is my data encrypted and do you have a SOC 2 report?", "intent": "product_info", "urgency_band": "low", "frustrated": false, "needs_human": false}
+{"id": "product_info_08", "text": "Does CloudSync Pro have a public API?", "intent": "product_info", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "product_info_09", "text": "Can I share a folder with someone outside my team?", "intent": "product_info", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "product_info_10", "text": "How does CloudSync Pro differ from ordinary cloud storage?", "intent": "product_info", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "smalltalk_01", "text": "hello!", "intent": "smalltalk", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "smalltalk_02", "text": "thanks for your help", "intent": "smalltalk", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "smalltalk_03", "text": "good morning", "intent": "smalltalk", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "smalltalk_04", "text": "cheers, that worked", "intent": "smalltalk", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "smalltalk_05", "text": "hi there, quick question", "intent": "smalltalk", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "smalltalk_06", "text": "thank you so much, bye", "intent": "smalltalk", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "smalltalk_07", "text": "hey, hope you are having a good day", "intent": "smalltalk", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
+{"id": "smalltalk_08", "text": "ok thanks", "intent": "smalltalk", "urgency_band": "not urgent", "frustrated": false, "needs_human": false}
