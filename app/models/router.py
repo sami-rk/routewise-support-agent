@@ -9,6 +9,7 @@ through `ROUTER_BACKEND`.
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
@@ -307,11 +308,11 @@ class FakeRouter:
         ("refund", ("refund", "money back", "reimburse", "chargeback")),
         (
             "billing",
-            ("invoice", "billing", "bill me", "charged", "charge", "payment", "renew", "receipt"),
+            ("invoice", "billing", "bill", "charged", "charge", "payment", "renew", "receipt"),
         ),
         (
             "pricing",
-            ("pricing", "price", "how much", "per month", "cheaper", "tier"),
+            ("pricing", "price", "plan", "how much", "per month", "cheaper", "tier"),
         ),
         (
             "technical",
@@ -386,7 +387,17 @@ class FakeRouter:
     URGENCY_MARKERS = (
         (
             "critical",
-            ("data loss", "lost my files", "production down", "hacked", "breach", "sue", "lawyer"),
+            (
+                "data loss",
+                "lost my data",
+                "lost all my files",
+                "lost my files",
+                "production down",
+                "hacked",
+                "breach",
+                "sue",
+                "lawyer",
+            ),
         ),
         (
             "high",
@@ -408,13 +419,15 @@ class FakeRouter:
         probs = {name: 0.01 for name in INTENTS}
         probs[intent] = intent_conf
 
-        needs_human, needs_conf = self._noul(text, self.HUMAN_MARKERS)
         frustrated, frustrated_conf = self._noul(text, self.FRUSTRATION_MARKERS)
         injection, injection_conf = self._noul(text, self.INJECTION_MARKERS)
 
-        if self.escalate_on_keywords and self._matches(text, self.ESCALATION_KEYWORDS):
-            # v1 behaviour: these keywords escalated unconditionally.
-            needs_human, needs_conf = True, max(needs_conf, 0.95)
+        if self.escalate_on_keywords:
+            # v1 in full: its own escalation list is the only signal, so a
+            # legal threat phrased without those keywords was missed.
+            needs_human, needs_conf = self._noul(text, self.ESCALATION_KEYWORDS)
+        else:
+            needs_human, needs_conf = self._noul(text, self.HUMAN_MARKERS)
 
         urgency, band = self._urgency(text)
 
@@ -448,7 +461,13 @@ class FakeRouter:
 
     @staticmethod
     def _matches(text: str, markers: tuple[str, ...]) -> bool:
-        return any(marker in text for marker in markers)
+        """True when any marker appears at the start of a word.
+
+        Anchored at the start only, so "charge" still matches "charged" and
+        "cancel" still matches "cancelled", while "sync" no longer matches the
+        "sync" inside "CloudSync".
+        """
+        return any(re.search(rf"\b{re.escape(marker)}", text) for marker in markers)
 
     def _noul(self, text: str, markers: tuple[str, ...]) -> tuple[bool, float]:
         hit = self._matches(text, markers)
