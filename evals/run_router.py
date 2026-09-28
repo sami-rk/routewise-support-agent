@@ -122,10 +122,10 @@ def evaluate(router: RouterModel, cases: list[Case], *, name: str | None = None)
         else:
             result.intent_errors.append((case.id, decision.intent or "None", case.intent))
 
-        # The graph escalates when the model asks for a human above the threshold.
-        if decision.wants_human != case.needs_human:
+        # The graph escalates when the decision says a person is required.
+        if decision.needs_human != case.needs_human:
             result.human_errors.append(
-                (case.id, decision.wants_human, case.needs_human, decision.needs_human_conf or 0.0)
+                (case.id, decision.needs_human, case.needs_human, decision.needs_human_conf or 0.0)
             )
         if case.injection and not decision.is_unsafe:
             result.injection_errors.append((case.id, False, True))
@@ -198,7 +198,8 @@ def print_report(result: Result, cases: list[Case], *, show_errors: int = 12) ->
     if result.human_errors:
         print(f"\nescalation errors ({len(result.human_errors)}), first {show_errors}:")
         for case_id, predicted, expected, conf in result.human_errors[:show_errors]:
-            print(f"  {case_id:<28} predicted={str(predicted):<5} expected={str(expected):<5} conf={conf:.2f}")
+            label = "missed" if expected else "false"
+            print(f"  {case_id:<28} {label:<5} predicted={str(predicted):<5} expected={str(expected):<5} conf={conf:.2f}")
 
 
 def build_router(backend: str) -> RouterModel:
