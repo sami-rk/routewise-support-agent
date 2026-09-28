@@ -1,0 +1,32 @@
+# Orchestration
+langgraph==1.2.12
+langgraph-checkpoint-sqlite==3.1.1
+
+# LLM plumbing (OpenRouter via the OpenAI-compatible client)
+langchain-core==1.6.5
+langchain-openai==1.6.6
+langchain-text-splitters==1.1.2
+
+# Router model (local, open weights). Pulls torch + transformers.
+laya==0.3.21
+torch==2.14.0
+
+# Local embeddings and vector store
+sentence-transformers==6.1.0
+faiss-cpu==1.15.1
+
+# Config
+pydantic-settings==2.15.0
+
+# API
+fastapi==0.141.1
+uvicorn[standard]
+sse-starlette==3.4.11
+
+# Frontend
+streamlit==1.64.0
+
+# Tests
+pytest==9.1.1
+pytest-asyncio
+httpx
