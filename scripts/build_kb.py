@@ -13,14 +13,15 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from app.config import get_settings
+from app.config import get_settings, validate_settings
 from app.rag.chunking import chunk_directory
 from app.rag.indexer import INDEX_FILENAME, build_index
 from app.rag.ingest import DEFAULT_EMBEDDING_MODEL, SentenceTransformerEmbedder
 
 
 def main() -> None:
-    settings = get_settings()
+    # Refuse a non-free LLM_MODELS before spending time embedding.
+    settings = validate_settings()
     parser = argparse.ArgumentParser(description="Build the FAISS knowledge base index.")
     parser.add_argument(
         "--kb-dir",

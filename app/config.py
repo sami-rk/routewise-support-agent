@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # The OpenRouter free-model router, and any model whose id ends with ":free".
 FREE_MODEL_IDS = frozenset({"openrouter/free"})
@@ -38,7 +38,13 @@ class Settings(BaseSettings):
     # --- LLM layer: OpenRouter, free tier only -------------------------------
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    llm_models: list[str] = Field(default_factory=lambda: ["openrouter/free"])
+    # `NoDecode` stops pydantic-settings trying to JSON-parse this before the
+    # validator below runs. Without it `LLM_MODELS=openrouter/free` works in a
+    # .env file but raises in the environment, which is what a container or CI
+    # uses.
+    llm_models: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["openrouter/free"]
+    )
     llm_temperature: float = 0.2
     llm_timeout_s: float = 45.0
     llm_max_retries: int = 2
@@ -129,6 +135,21 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Process-wide settings singleton."""
     return Settings()
+
+
+def validate_settings(settings: Settings | None = None) -> Settings:
+    """Build the settings now, so a bad configuration fails at startup.
+
+    `get_settings` is lazy, so without this a non-free model would only be
+    refused on the first request rather than when the process starts. Every
+    entry point — the API lifespan, the CLI, the scripts and the evals — calls
+    this once at boot.
+
+    Raises:
+        pydantic.ValidationError: if the environment is not usable, including a
+            `LLM_MODELS` entry that is not a free OpenRouter model.
+    """
+    return settings if settings is not None else get_settings()
 
 
 def reset_settings_cache() -> None:

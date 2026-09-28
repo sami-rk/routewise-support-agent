@@ -227,6 +227,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--min-accuracy", type=float, default=DEFAULT_MIN_ACCURACY)
     args = parser.parse_args(argv)
 
+    # Validate the configuration before scoring, so a paid model cannot be measured.
+    from app.config import validate_settings
+
+    validate_settings()
     cases = load_cases(args.cases)
     print(f"{len(cases)} cases from {args.cases}")
 

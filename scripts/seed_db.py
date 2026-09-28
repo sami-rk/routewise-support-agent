@@ -14,6 +14,7 @@ import argparse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from app.config import validate_settings
 from app.db.session import close_connection, execute, init_db, query_one, set_db_path
 
 UTC = timezone.utc
@@ -118,6 +119,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Seed the CloudSync Pro support database.")
     parser.add_argument("--db-path", default=None, help="Target database (default: DB_PATH from settings).")
     args = parser.parse_args()
+    validate_settings()
 
     counts = seed(Path(args.db_path) if args.db_path else None)
     customers = query_one("SELECT COUNT(*) AS n FROM customers")

@@ -17,7 +17,7 @@ from typing import Any
 
 from .agent.graph import build_graph, thread_config
 from .agent.state import new_state
-from .config import get_settings
+from .config import get_settings, validate_settings
 from .db.session import close_connection, init_db
 from .observability.tracing import new_run_id
 
@@ -53,7 +53,8 @@ def show(result: dict[str, Any]) -> None:
 
 
 def main() -> None:
-    settings = get_settings()
+    # Refuse a non-free LLM_MODELS here, before any work happens.
+    settings = validate_settings()
     parser = argparse.ArgumentParser(description="Chat with the support agent in the terminal.")
     parser.add_argument("--customer", default="cus_ada", help="Customer id to act as.")
     parser.add_argument("--router", choices=("laya", "fake"), default=None)

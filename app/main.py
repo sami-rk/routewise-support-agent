@@ -16,7 +16,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from .agent.graph import build_graph
 from .api import chat, memory, staff
-from .config import get_settings
+from .config import get_settings, validate_settings
 from .db.session import init_db
 from .rag.retriever import is_index_built
 
@@ -32,7 +32,7 @@ happens."""
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Load the models, the index and the graph once, then serve."""
-    settings = get_settings()
+    settings = validate_settings()
     logging.basicConfig(level=logging.INFO)
 
     init_db()

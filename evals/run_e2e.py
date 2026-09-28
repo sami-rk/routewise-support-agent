@@ -216,6 +216,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--only", default=None, help="Only cases whose name contains this.")
     args = parser.parse_args(argv)
 
+    from app.config import validate_settings
+
+    validate_settings()
     cases = load_cases(args.cases)
     if args.only:
         cases = [c for c in cases if args.only.lower() in c["name"].lower()]

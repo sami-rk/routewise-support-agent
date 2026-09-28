@@ -47,6 +47,20 @@ def test_json_style_model_list_is_accepted() -> None:
     assert settings.llm_models == ["openrouter/free"]
 
 
+def test_a_comma_separated_env_var_is_split(monkeypatch) -> None:
+    # The environment is what a container and CI set. pydantic-settings tries to
+    # JSON-parse a list field before the validator runs, so this only works
+    # because of the `NoDecode` annotation on the field; without it this raises.
+    from app.config import get_settings, reset_settings_cache
+
+    monkeypatch.setenv("LLM_MODELS", "openrouter/free,qwen/qwen3.8-27b:free")
+    reset_settings_cache()
+    try:
+        assert get_settings().llm_models == ["openrouter/free", "qwen/qwen3.8-27b:free"]
+    finally:
+        reset_settings_cache()
+
+
 def test_relative_paths_resolve_against_the_project_root() -> None:
     settings = make_settings(db_path=Path("./data/support.db"))
     assert settings.db_path == PROJECT_ROOT / "data" / "support.db"
