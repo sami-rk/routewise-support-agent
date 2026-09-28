@@ -104,9 +104,8 @@ def health() -> dict[str, Any]:
     return _request("GET", "/health")
 
 
-def customers() -> list[dict[str, str]]:
-    """Demo customers, from the seed data, for the sidebar picker."""
-    from app.db.session import query_all
-
-    rows = query_all("SELECT id, name, email FROM customers ORDER BY name")
-    return [dict(row) for row in rows]
+# The sidebar's customer list is the hard-coded DEMO_CUSTOMERS table in
+# streamlit_app.py. It used to be read straight out of SQLite from here, which
+# meant the console reached into the app package for data the API already owns,
+# and would have raised ImportError in the console container, which does not
+# ship `app/`. Everything here is HTTP and nothing else.
