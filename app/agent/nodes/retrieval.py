@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from ...config import Settings, get_settings
 from ...rag.retriever import get_retriever
 from ..state import SupportState
 
@@ -18,15 +17,18 @@ from ..state import SupportState
 NOTHING_FOUND = "(nothing relevant was found in the knowledge base)"
 
 
-def retrieve_kb(state: SupportState, settings: Settings | None = None) -> dict[str, Any]:
+def retrieve_kb(state: SupportState) -> dict[str, Any]:
     """Search the knowledge base for this turn's question.
+
+    The retriever carries its own `top_k` and `min_score`, read from settings
+    when it was loaded. This node does not override them: two sources of truth
+    for one threshold is how a tuned retriever silently stops being used.
 
     Returns:
         `retrieved` (the passages) and `retrieved_context` (the flattened text
         with citations). `retrieved_context` is `NOTHING_FOUND` when the search
         came back empty, so the agent does not try to answer from nothing.
     """
-    settings = settings or get_settings()
     query = (state.get("retrieval_query") or state.get("user_input") or "").strip()
     if not query:
         return {"retrieved": [], "retrieved_context": NOTHING_FOUND}
@@ -40,7 +42,7 @@ def retrieve_kb(state: SupportState, settings: Settings | None = None) -> dict[s
             "retrieved_context": f"{NOTHING_FOUND} (the knowledge base is not built: {exc})",
         }
 
-    passages = retriever.search(query, top_k=settings.kb_top_k, min_score=settings.kb_min_score)
+    passages = retriever.search(query)
     if not passages:
         return {"retrieved": [], "retrieved_context": NOTHING_FOUND}
 

@@ -40,7 +40,11 @@ class SupportState(TypedDict, total=False):
     urgency: float | None
     urgency_band: str | None
     frustrated: bool | None
+    # P(injection) on 0..1, not a bool: the guardrail has a threshold.
+    injection: float | None
     needs_human: bool | None
+    # Which signal decided the escalation: a keyword, a request, a topic.
+    needs_human_reason: str | None
     # Kept from the original agent; now derived from the router rather than a
     # keyword list.
     escalate: bool
@@ -53,13 +57,25 @@ class SupportState(TypedDict, total=False):
     # e.g. {"type": "refund", "invoice_id": ..., "amount": 19.0, "mode": "staff_approve"}
     pending_action: dict[str, Any] | None
     approval: Approval
+    # The note a reviewer left with their decision.
+    approval_note: str | None
+    # Who approved it, for the refund audit trail.
+    approved_by: str | None
+    # "staff_approve" or "customer_confirm", set by the gate.
+    mode: str | None
+    # What the action actually did, once run.
+    action_result: dict[str, Any] | None
     # The interrupt payload the API hands to the client.
     interrupt: dict[str, Any] | None
     ticket_id: str | None
+    # The full ticket row, so `escalate` can quote the id.
+    ticket: dict[str, Any] | None
     response: str
 
     # --- memory -----------------------------------------------------------
     customer_memory: str | None
+    # Whether the long-term summary was rewritten this turn.
+    memory_updated: bool
     # Name, plan, devices and memory, loaded once per turn.
     customer_facts: dict[str, Any]
     # Set when the router was unsure and a clarifying question was asked.

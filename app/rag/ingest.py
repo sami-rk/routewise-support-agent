@@ -87,9 +87,13 @@ class SentenceTransformerEmbedder:
 class HashEmbedder:
     """A deterministic offline embedder, for tests.
 
-    Hashes word tokens into a fixed number of buckets with signed weights. It has
-    no semantic understanding, so retrieved passages are not meaningful, but it
-    is stable, needs no download and makes the FAISS plumbing testable.
+    Counts word tokens into hashed buckets and L2-normalises, so the inner
+    product is a non-negative lexical overlap in 0..1. It has no semantic
+    understanding — "refund" and "money back" are unrelated to it — but text
+    that shares words scores above text that does not, which is what the
+    retrieval plumbing needs in order to be testable offline.
+
+    Do not use this to judge retrieval quality; use the real embedding model.
     """
 
     def __init__(self, dimension: int = 64) -> None:
@@ -98,13 +102,15 @@ class HashEmbedder:
     def _vector(self, text: str) -> list[float]:
         import hashlib
         import math
+        import re
 
         vector = [0.0] * self._dimension
-        for token in (text or "").lower().split():
+        # Word characters only: splitting a markdown table on whitespace makes
+        # `|` and `---` count as terms, which drowns out the real overlap.
+        for token in re.findall(r"[a-z0-9]+", (text or "").lower()):
             digest = hashlib.sha256(token.encode("utf-8")).digest()
             bucket = int.from_bytes(digest[:4], "big") % self._dimension
-            sign = 1.0 if digest[4] % 2 == 0 else -1.0
-            vector[bucket] += sign
+            vector[bucket] += 1.0
         norm = math.sqrt(sum(value * value for value in vector))
         if norm == 0.0:
             return vector
