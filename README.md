@@ -37,6 +37,47 @@ Streamlit console  ──HTTP/SSE──►  FastAPI  ──►  LangGraph app (c
 - **Runs offline for tests.** `FakeRouter` plus a scripted model means the whole
   suite needs no API key, no Laya download and no embedding model.
 
+## Run it with one command
+
+```bash
+docker compose up --build
+```
+
+That is the whole setup. Then:
+
+| | |
+|---|---|
+| API | http://localhost:8000 — docs at `/docs`, health at `/health` |
+| Console | http://localhost:8501 |
+
+The first start seeds the demo database and builds the FAISS index inside a named
+volume, and downloads the local embedding model (~130 MB) once. The api reports
+unhealthy while that happens and the console waits for it, so give it a minute or
+two. Later starts skip straight to serving.
+
+```bash
+docker compose up        # later runs, starts immediately
+docker compose logs -f api
+docker compose down      # stop, keep the data
+./scripts/dev_reset.sh   # stop, delete the volume, start over
+```
+
+Put `OPENROUTER_API_KEY` in `.env` for live answers. Without a key the agent
+replies with the "we are busy" message, since there is nothing to spend a request
+with. The default `ROUTER_BACKEND=fake` keeps the first run light; set
+`ROUTER_BACKEND=laya` in `.env` to route with the local decision model, which adds
+a 1.7 GB checkpoint download and several seconds per turn on a CPU.
+
+> **Not verified.** Docker is not installed on the machine this was built on, so
+> `docker compose up --build` has never been run. The pieces it depends on were
+> tested individually: the entrypoint's setup half was executed against a
+> temporary directory and produced the right 49-passage index and 10 seeded
+> customers, and `tests/test_docker_config.py` checks the configuration for the
+> mistakes that break a build — a `COPY` whose source is missing or excluded by
+> `.dockerignore`, a service with no build context, the console importing the
+> `app` package its image does not ship, a missing executable bit. The image
+> itself, the compose orchestration and the health check are unexercised.
+
 ## The graph
 
 ![The compiled support graph: 14 nodes and 27 edges](docs/support_graph.svg)
@@ -125,6 +166,15 @@ drift. The **edge labels on the picture** are short and hand-maintained in
 which is why the full conditions are tabulated above.
 
 ## Quick start
+
+Two ways in. The container is one command; from source takes a minute and gives
+you a CLI as well.
+
+```bash
+docker compose up --build                    # API on :8000, console on :8501
+```
+
+Or from source:
 
 ```bash
 python3 -m venv --without-pip .venv          # see "Python setup" if ensurepip is missing
@@ -377,8 +427,10 @@ app/
 data/knowledge_base/  eight documents
 frontend/            Streamlit console
 evals/               router cases, e2e cases, runners
-tests/               482 offline tests
-scripts/             seed_db, build_kb, demo_router, bench_router
+tests/               541 offline tests
+scripts/             seed_db, build_kb, demo_router, bench_router, plot_graph, dev_reset
+docker/              entrypoint.sh
+docs/                support_graph.svg (generated)
 ```
 
 ## Decisions where the spec was open
@@ -422,3 +474,7 @@ scripts/             seed_db, build_kb, demo_router, bench_router
   not against a real per-minute limit.
 - **Concurrent load.** One user, one thread. The per-thread SQLite connections and
   the thread offload in the SSE endpoint are written for it but not load-tested.
+- **The Docker image and compose stack.** Docker is not installed on the build
+  machine, so `docker compose up --build` has never actually run. The entrypoint's
+  setup half and the container configuration are tested; the image build, the
+  orchestration and the health check are not.
