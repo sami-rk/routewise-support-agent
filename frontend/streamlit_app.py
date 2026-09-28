@@ -122,24 +122,9 @@ def page_chat() -> None:
         with st.chat_message("assistant"):
             render_reply(turn)
 
-    pending = st.session_state.get("pending")
-    if pending:
-        st.warning(pending["question"])
-        left, right = st.columns(2)
-        if left.button("Yes, go ahead", type="primary"):
-            result = confirm(st.session_state.thread_id, True)
-            st.session_state.messages[-1]["reply"] = result
-            st.session_state.pending = None
-            st.rerun()
-        if right.button("No, leave it"):
-            result = confirm(st.session_state.thread_id, False)
-            st.session_state.messages[-1]["reply"] = result
-            st.session_state.pending = None
-            st.rerun()
-        return
-
     message = st.chat_input("Ask about your account")
     if not message:
+        render_pending()
         return
 
     st.session_state.messages.append({"user": message, "reply": {"response": "", "citations": []}})
@@ -154,21 +139,44 @@ def page_chat() -> None:
 
         st.session_state.thread_id = result.get("thread_id")
 
-        if result.get("status") in ("awaiting_approval", "awaiting_confirmation"):
+        if result.get("status") == "awaiting_confirmation":
             payload = result.get("interrupt") or {}
-            if result["status"] == "awaiting_confirmation":
-                st.session_state.pending = {
-                    "question": payload.get("question", "Shall I go ahead?")
-                }
-            else:
-                # A staff decision is made in the Approvals page, not here.
-                st.info(
-                    f"Waiting for staff approval of a ${payload.get('amount', 0):.2f} refund. "
-                    "See the Approvals page."
-                )
+            st.session_state.pending = {"question": payload.get("question", "Shall I go ahead?")}
+            st.info("I need your confirmation before I cancel anything.")
+        elif result.get("status") == "awaiting_approval":
+            payload = result.get("interrupt") or {}
+            # A staff decision is made in the Approvals page, not here.
+            st.info(
+                f"Waiting for staff approval of a ${payload.get('amount', 0):.2f} refund. "
+                "See the Approvals page."
+            )
         else:
             render_reply(result)
         st.session_state.messages[-1]["reply"] = result
+
+    # Rendered after the handler, not before: a Streamlit run that sets the
+    # pending state would otherwise leave the customer looking at nothing until
+    # their next interaction.
+    render_pending()
+
+
+def render_pending() -> None:
+    """The yes/no prompt for a cancellation waiting on the customer."""
+    pending = st.session_state.get("pending")
+    if not pending:
+        return
+    st.warning(pending["question"])
+    left, right = st.columns(2)
+    if left.button("Yes, go ahead", type="primary"):
+        result = confirm(st.session_state.thread_id, True)
+        st.session_state.messages[-1]["reply"] = result
+        st.session_state.pending = None
+        st.rerun()
+    if right.button("No, leave it"):
+        result = confirm(st.session_state.thread_id, False)
+        st.session_state.messages[-1]["reply"] = result
+        st.session_state.pending = None
+        st.rerun()
 
 
 def page_approvals() -> None:
