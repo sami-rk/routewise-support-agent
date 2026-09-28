@@ -234,7 +234,7 @@ data/checkpoints*.db
 data/kb_index/
 
 # Downloaded model weights
-models/
+/models/
 *.safetensors
 *.onnx
 .cache/huggingface/
