@@ -216,3 +216,28 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+PROJECT_SPEC.md
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Generated databases
+data/*.db
+data/*.db-journal
+data/*.sqlite3
+data/checkpoints*.db
+
+# Generated FAISS index
+data/kb_index/
+
+# Downloaded model weights
+models/
+*.safetensors
+*.onnx
+.cache/huggingface/
+
+# Eval output
+evals/results/
