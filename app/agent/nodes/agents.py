@@ -36,6 +36,11 @@ MAX_TOOL_STEPS = 2
 # An agent proposes a money or cancellation action with a line like this.
 ACTION_RE = re.compile(r"ACTION:\s*(\{.*?\})\s*$", re.IGNORECASE | re.DOTALL | re.MULTILINE)
 
+# The action retry is only worth its call if the turn has not already used two.
+# The free tier allows about 20 requests a minute and a single call can take
+# 30 seconds, so a turn that has spent two is better off answering.
+RETRY_CALL_BUDGET = 2
+
 # Said when the model's whole reply was a tool call and there is no prose to show.
 PENDING_SUMMARY = {
     "refund": "I have sent that refund for approval and will confirm once it is approved.",
@@ -129,6 +134,7 @@ def run_agent(
         "tools_used": tools_used,
         "pending_action": action,
         "wants_ticket": bool(action and action.get("type") == "ticket"),
+        "llm_calls": step + 1,
     }
 
 
@@ -386,12 +392,17 @@ def billing_agent(state: SupportState, settings: Settings | None = None) -> dict
     if result.get("pending_action") is None and customer_asked_for_action(state):
         # The model explained the situation but never asked to act. Rather than
         # leave a customer waiting on a refund that was never proposed, ask once
-        # more, with the narrowest possible instruction. One extra call, and only
-        # in the case where an action was expected.
-        action = _ask_for_action(state, settings)
-        if action:
-            result["pending_action"] = action
-            result["wants_ticket"] = False
+        # more, with the narrowest possible instruction — but only if the turn has
+        # not already spent its budget. Against the free tier a call can take
+        # 30 seconds, and the tier allows about 20 a minute, so a turn that has
+        # used two is better off answering than asking again.
+        if result.get("llm_calls", 0) <= RETRY_CALL_BUDGET:
+            action = _ask_for_action(state, settings)
+            if action:
+                result["pending_action"] = action
+                result["wants_ticket"] = False
+                result["llm_calls"] = result.get("llm_calls", 0) + 1
+    result.pop("llm_calls", None)
     return result
 
 
