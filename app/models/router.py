@@ -465,3 +465,153 @@ class FakeRouter:
             if self._matches(text, markers):
                 return round(URGENCY_LEVELS.index(band) / (len(URGENCY_LEVELS) - 1), 4), band
         return 0.25, "low"
+
+
+
+class LayaRouter:
+    """The local Laya decision model, wrapped so nothing else imports `laya`.
+
+    Laya answers typed questions in one forward pass and returns calibrated
+    probabilities, so a turn costs milliseconds and zero OpenRouter requests.
+    The English checkpoint is `convaiinnovations/laya` (ModernBERT-large, 512
+    tokens of context); `laya.Router` is deliberately not used, because it
+    routes between checkpoints per request and multilingual routing is out of
+    scope for v1.
+
+    Every Laya-specific detail lives in this class: how the agent is loaded, how
+    it is called, and how its answers are read. Everything downstream takes a
+    `RouterDecision`.
+    """
+
+    name = "laya"
+
+    def __init__(
+        self,
+        checkpoint: str = "convaiinnovations/laya",
+        device: str = "auto",
+        *,
+        questions: dict[str, dict[str, Any]] | None = None,
+    ) -> None:
+        self.checkpoint = checkpoint
+        self.device = device
+        self.questions = questions or QUESTIONS
+        self._agent: Any = None
+
+    # --- lifecycle ---------------------------------------------------------
+
+    def load(self) -> "LayaRouter":
+        """Download and build the checkpoint. Idempotent.
+
+        CPU by default; `device="auto"` uses CUDA when it is available. Safe to
+        call from the FastAPI lifespan, before the event loop starts serving.
+        """
+        if self._agent is not None:
+            return self
+
+        import laya  # imported here so the rest of the app never needs torch
+
+        device = resolve_device(self.device)
+        self._agent = laya.load(self.checkpoint, device=device)
+        return self
+
+    def health(self) -> dict[str, Any]:
+        return {
+            "backend": "laya",
+            "loaded": self._agent is not None,
+            "checkpoint": self.checkpoint,
+            "device": self.device,
+        }
+
+    # --- inference ---------------------------------------------------------
+
+    def predict(self, state: str) -> RouterDecision:
+        """Answer the five routing questions about one turn.
+
+        The state is truncated to the checkpoint's context first, so a long
+        history cannot push the customer's actual message out of the window.
+        """
+        self.load()
+        payload = self._system_one(state)
+
+        answers = payload.get("answers") or {}
+        intent_answer = answers.get("intent") or {}
+        urgency_answer = answers.get("urgency") or {}
+
+        probs = {
+            label: float(p)
+            for label, p in (intent_answer.get("probabilities") or {}).items()
+        }
+        intent = intent_answer.get("choice")
+        # The confidence gate uses the top probability, not Laya's
+        # `confidence` field, which is a normalised-entropy measure.
+        intent_conf = max(probs.values()) if probs else None
+
+        urgency, band = normalise_score(urgency_answer, URGENCY_LEVELS)
+        frustrated = probability_of_true(answers.get("frustrated") or {})
+        needs_human = probability_of_true(answers.get("needs_human") or {})
+        injection = probability_of_true(answers.get("injection") or {})
+
+        return RouterDecision(
+            intent=intent if intent in INTENTS else None,
+            intent_conf=round(intent_conf, 4) if intent_conf is not None else None,
+            intent_probs=probs,
+            urgency=urgency,
+            urgency_band=band,
+            frustrated=frustrated > 0.5,
+            frustrated_conf=frustrated,
+            needs_human=needs_human > 0.5,
+            needs_human_conf=needs_human,
+            injection=injection > 0.5,
+            injection_conf=injection,
+            model=(payload.get("routing") or {}).get("model") or self.checkpoint,
+            backend="laya",
+            raw={
+                "answers": answers,
+                "routing": payload.get("routing"),
+                "usage": payload.get("usage"),
+            },
+        )
+
+    def _system_one(self, state: str) -> dict[str, Any]:
+        """Call Laya, tolerating the API differences between versions.
+
+        0.3.x exposes `Agent.system_one(state, questions)`. Earlier releases
+        used `predict(state, questions)`, and the `laya.Router` wrapper still
+        does. The first method that exists wins, so a version bump in either
+        direction is a one-line change here rather than a rewrite of the graph.
+
+        Args:
+            state: the routing state, already truncated by the caller.
+
+        Returns:
+            The raw payload, with an `answers` key.
+        """
+        truncated = state[:STATE_CHAR_BUDGET]
+        agent = self._agent
+        for method in ("system_one", "predict"):
+            call = getattr(agent, method, None)
+            if callable(call):
+                payload = call(truncated, self.questions)
+                if payload is not None:
+                    return dict(payload)
+        raise RuntimeError(
+            f"Laya agent {type(agent).__name__} exposes neither system_one() nor predict(); "
+            "update LayaRouter._system_one for this laya version."
+        )
+
+
+def resolve_device(device: str) -> str:
+    """Turn `ROUTER_DEVICE` into a device Laya accepts.
+
+    `auto` picks CUDA when torch can see it, and CPU otherwise. This box has no
+    GPU, so the default is CPU and the latency budget is met on CPU alone.
+    """
+    if device in ("cpu", "cuda"):
+        return device
+    try:
+        import torch
+    except ImportError:
+        return "cpu"
+    if device == "cuda" or (device == "auto" and torch.cuda.is_available()):
+        return "cuda"
+    return "cpu"
