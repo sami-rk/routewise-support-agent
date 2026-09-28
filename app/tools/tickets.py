@@ -100,15 +100,23 @@ def get_ticket(ticket_id: str) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
-def get_ticket_status(ticket_id: str) -> dict[str, Any]:
+def get_ticket_status(ticket_id: str, *, owner_id: str | None = None) -> dict[str, Any]:
     """Status and last update for a ticket.
 
+    Args:
+        ticket_id: the ticket to look up.
+        owner_id: when given, the ticket must belong to this customer. A
+            mismatch is reported as "not found" rather than "forbidden", so the
+            caller cannot use this to discover which ids exist.
+
     Raises:
-        UnknownTicketError: if the ticket does not exist, or belongs to somebody
-            else — the caller passes the id the customer was given.
+        UnknownTicketError: if the ticket does not exist, or does not belong to
+            `owner_id`.
     """
     ticket = get_ticket(ticket_id)
     if ticket is None:
+        raise UnknownTicketError(f"No ticket {ticket_id!r}")
+    if owner_id is not None and ticket["customer_id"] != owner_id:
         raise UnknownTicketError(f"No ticket {ticket_id!r}")
     return {
         "ticket_id": ticket["id"],
