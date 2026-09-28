@@ -109,10 +109,13 @@ jobs:
         run: |
           python - <<'PY'
           from huggingface_hub import scan_cache_dir
-          checkpoints = [r.repo_id for r in scan_cache_dir().repos
-                         if "convaiinnovations" in str(r.repo_id)]
+          found = [getattr(r, "repo_id", None) for r in scan_cache_dir().repos]
+          checkpoints = [r for r in found if r and "convaiinnovations" in str(r)]
           if checkpoints:
-              raise SystemExit(f"a Laya checkpoint was downloaded: {checkpoints}")
+              raise SystemExit(
+                  f"a Laya checkpoint was downloaded ({checkpoints}); this job only "
+                  "validates the question definitions, which needs no weights"
+              )
           print("no Laya checkpoint on disk, as expected")
           PY
 
