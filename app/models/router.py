@@ -86,6 +86,40 @@ LAYA_MAX_TOKENS = 512
 STATE_CHAR_BUDGET = 1200
 
 
+def normalise_score(answer: dict[str, Any], levels: tuple[str, ...] = URGENCY_LEVELS) -> tuple[float, str]:
+    """Map a Laya `score` answer onto 0..1 and name the band.
+
+    A score answer is an *expected value* over the level indices, not an index
+    and not a probability: a spread of 0.2 across levels 3 and 4 comes back as
+    3.8. Dividing by the top of the scale turns that into the 0..1 position the
+    graph state wants. The band is the level the expectation sits closest to,
+    with ties rounding up, so the trace shows something a human recognises.
+
+    Args:
+        answer: one entry of `result["answers"]` for a `score` question.
+        levels: the ordered scale the question was asked with.
+
+    Returns:
+        `(position, band)`. A missing or malformed answer falls back to the
+        bottom of the scale rather than raising.
+    """
+    span = max(1, len(levels) - 1)
+    raw = answer.get("score")
+    if not isinstance(raw, (int, float)):
+        return 0.0, levels[0]
+    position = min(1.0, max(0.0, float(raw) / span))
+    band_index = min(span, max(0, int(round(float(raw)))))
+    return round(position, 4), levels[band_index]
+
+
+def probability_of_true(answer: dict[str, Any]) -> float:
+    """P(true) from a Laya `noul` answer, clamped to 0..1."""
+    value = answer.get("noul")
+    if not isinstance(value, (int, float)):
+        return 0.0
+    return round(min(1.0, max(0.0, float(value))), 4)
+
+
 def build_router_state(
     user_input: str,
     history: list[tuple[str, str]] | None = None,
