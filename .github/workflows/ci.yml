@@ -1,0 +1,139 @@
+name: CI
+
+# Nothing here needs a secret. The whole suite runs with the keyword router and
+# a scripted model, so there is no OpenRouter key, no Laya checkpoint and no
+# embedding model to download.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # numpy 2.5.x has no cp311 wheels, so pip resolves 2.4.6 on 3.11 and the
+        # latest on the others. Both work.
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Install the offline dependency set
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      - name: Prove torch, laya and sentence-transformers are absent
+        # If a heavy import ever moves to module level, this fails instead of the
+        # job mysteriously getting slower and slower.
+        run: |
+          python - <<'PY'
+          import importlib.util, sys
+          missing = [m for m in ("torch", "laya", "sentence_transformers")
+                     if importlib.util.find_spec(m) is None]
+          if not missing:
+              sys.exit("expected torch, laya and sentence_transformers to be absent")
+          print("not installed, as intended:", ", ".join(missing))
+          PY
+
+      - name: Run the test suite
+        env:
+          ROUTER_BACKEND: fake
+        run: python -m pytest tests/ -q
+
+  evals:
+    name: evals
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - run: python -m pip install --upgrade pip && pip install -r requirements-ci.txt
+
+      - name: Scripted end-to-end conversations
+        run: python -m evals.run_e2e
+
+      - name: Router eval against the keyword baseline
+        # The 85% gate in the spec applies to Laya, which needs a 1.7 GB
+        # checkpoint, so CI scores the baseline instead and just asserts it runs.
+        run: python -m evals.run_router --backend fake --baseline
+
+      - name: Router latency benchmark for the keyword router
+        run: python -m scripts.bench_router --backend fake
+
+  laya-questions:
+    name: laya question definitions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install the full dependency set
+        # CPU-only torch: this job validates the question definitions against
+        # laya's own validators, and never loads a checkpoint.
+        run: |
+          python -m pip install --upgrade pip
+          pip install --index-url https://download.pytorch.org/whl/cpu torch==2.14.0
+          pip install -r requirements.txt
+
+      - name: No checkpoint was downloaded
+        run: |
+          python - <<'PY'
+          from huggingface_hub import scan_cache_dir
+          checkpoints = [r.repo_id for r in scan_cache_dir().repos
+                         if "convaiinnovations" in str(r.repo_id)]
+          if checkpoints:
+              raise SystemExit(f"a Laya checkpoint was downloaded: {checkpoints}")
+          print("no Laya checkpoint on disk, as expected")
+          PY
+
+      - name: Questions are valid for the installed laya version
+        run: python -m pytest tests/test_router_questions.py -q -rs
+
+  graph:
+    name: graph diagram is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      # The plotting script imports the compiled graph, so it needs the agent
+      # stack, but not torch or laya.
+      - run: python -m pip install --upgrade pip && pip install -r requirements-ci.txt
+
+      - name: The committed diagram matches the compiled graph
+        run: python scripts/plot_graph.py --check
