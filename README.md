@@ -135,6 +135,13 @@ budget, `llm_runner` retries with exponential backoff, falls back to the next
 configured free model, and finally returns a friendly "we are busy" message
 instead of a stack trace.
 
+**The daily cap is account-wide, not per model.** After exhausting the 50 free
+requests in a day, OpenRouter returns
+`429 ... limit_source: openrouter_free_tier_daily` for *every* `:free` model, so
+the fallback chain does not get around it — it exists for the 20/minute limit and
+for an individual model being down. Raising it to 1,000/day needs $10 of
+purchased credits.
+
 ## API
 
 | Method and path | Purpose |
@@ -283,8 +290,10 @@ scripts/             seed_db, build_kb, demo_router, bench_router
 - **`laya[onnx]`.** The package ships an ONNX CPU path that would likely close
   most of the routing-latency gap; it needs a manual export step, so it is not
   wired up.
-- **Live rate limiting.** The key's daily free allowance was never exhausted, so the
-  backoff and fallback paths were verified with a stub that raises 429/5xx rather
-  than against OpenRouter actually rate limiting.
+- **Live rate limiting.** The 50/day free allowance *was* reached during the final
+  acceptance run, so the friendly "we are busy" path was observed against real
+  OpenRouter 429s. The per-minute limit, the exponential backoff and the
+  move-to-the-next-model fallback were verified with a stub that raises 429/5xx,
+  not against a real per-minute limit.
 - **Concurrent load.** One user, one thread. The per-thread SQLite connections and
   the thread offload in the SSE endpoint are written for it but not load-tested.
