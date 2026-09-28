@@ -1,0 +1,33 @@
+# Dependencies for the offline test suite, used by CI.
+#
+# Deliberately much smaller than requirements.txt: the whole suite runs with the
+# keyword router and a scripted model, so it needs no torch, no Laya and no
+# sentence-transformers. Those three are ~1 GB of wheels that nothing in the
+# suite imports — every heavy import in `app/` is inside a function, and the one
+# test file that does import `laya` skips cleanly when it is absent.
+#
+# `faiss` and `numpy` are here because the RAG tests really do build and search
+# an index; they are small. `uvicorn` is here because
+# tests/test_startup_refusal.py starts the app in a subprocess to prove that a
+# paid model id stops it booting.
+
+langgraph==1.2.12
+langgraph-checkpoint-sqlite==3.1.1
+langchain-core==1.6.5
+langchain-openai==1.6.6
+pydantic-settings==2.15.0
+
+faiss-cpu==1.15.1
+numpy
+
+fastapi==0.141.1
+uvicorn==0.54.0
+sse-starlette==3.4.11
+httpx
+
+# The console is tested with Streamlit's own headless harness.
+streamlit==1.64.0
+
+pytest==9.1.1
+pytest-asyncio
+pyyaml
