@@ -17,6 +17,8 @@ import time
 import uuid
 from typing import Any, Callable, TypeVar
 
+from langgraph.errors import GraphInterrupt
+
 from ..db.session import execute
 from .summaries import summarise_output, summarise_input
 
@@ -103,6 +105,21 @@ def trace_node(node_name: str, *, model: str | None = None) -> Callable[[F], F]:
 
             try:
                 result = func({**state, "run_id": run_id}, *args, **kwargs) or {}
+            except GraphInterrupt:
+                # `interrupt()` pauses the graph by raising. That is the design
+                # working, not a failure, so it must not count as an error in
+                # /metrics.
+                record_trace(
+                    run_id=run_id,
+                    thread_id=thread_id,
+                    node=node_name,
+                    started_at=started_at,
+                    duration_ms=(time.perf_counter() - started) * 1000,
+                    input_summary=summarise_input(state),
+                    output_summary="interrupted",
+                    model=model,
+                )
+                raise
             except Exception as exc:  # noqa: BLE001
                 record_trace(
                     run_id=run_id,

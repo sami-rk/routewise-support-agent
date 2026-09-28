@@ -105,6 +105,24 @@ class TestTraceNode:
         row = query_one("SELECT * FROM traces WHERE node = 'bad_node'")
         assert "it broke" in row["error"]
 
+    def test_an_interrupt_is_a_pause_not_an_error(self, db) -> None:
+        # `interrupt()` pauses the graph by raising GraphInterrupt. Counting
+        # those as failures would make /metrics report an error rate for healthy
+        # runs. Raised directly here, because a bare `interrupt()` needs a graph
+        # context; `test_interrupts_do_not_count_as_errors` covers the real one.
+        from langgraph.errors import GraphInterrupt
+        from langgraph.types import Interrupt
+
+        @trace_node("gate")
+        def node(state):
+            raise GraphInterrupt(Interrupt(value={"mode": "staff_approve"}, id="1"))
+
+        with pytest.raises(GraphInterrupt):
+            node({"thread_id": "t1", "run_id": new_run_id()})
+        row = query_one("SELECT * FROM traces WHERE node = 'gate'")
+        assert row["error"] is None
+        assert row["output_summary"] == "interrupted"
+
     def test_traces_accumulate_rather_than_replace(self, db) -> None:
         @trace_node("example_node")
         def node(state):
@@ -182,6 +200,26 @@ class TestMetrics:
         assert outcomes["escalated_runs"] >= 1
         assert outcomes["escalation_rate"] > 0
         assert outcomes["tickets"] >= 1
+
+    def test_interrupts_do_not_count_as_errors(self, db, knowledge_base) -> None:
+        from langgraph.checkpoint.sqlite import SqliteSaver
+        from langgraph.types import Command
+
+        from app.agent.graph import build_graph, thread_config
+        from tests.stub_llm import ScriptedLLM
+
+        proposal = {"content": "", "tool_calls": [{"name": "propose_cancellation", "args": {}}]}
+        with SqliteSaver.from_conn_string(str(db.checkpoint_db_path)) as saver:
+            graph = build_graph(checkpointer=saver, settings=db)
+            with ScriptedLLM([proposal, "cancelling", "cancelled"]):
+                graph.invoke(
+                    user_turn("Cancel my subscription", thread_id="t-int"),
+                    thread_config("t-int"),
+                )
+                graph.invoke(Command(resume="approved"), thread_config("t-int"))
+
+        assert conversation_metrics()["errors"] == 0
+        assert outcome_metrics()["escalated_runs"] == 0
 
     def test_llm_requests_are_counted_per_model(self, db) -> None:
         execute(
