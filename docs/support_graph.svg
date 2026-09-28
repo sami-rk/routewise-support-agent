@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2768" height="532" viewBox="0 0 2768 532" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#55606e"/></marker><marker id="arrow-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#98a2b3"/></marker></defs>
+<rect width="2768" height="532" fill="#ffffff"/>
+<text x="32" y="36" font-size="20" font-weight="600" fill="#1c2b40">CloudSync Pro support graph</text>
+<text x="32" y="58" font-size="12" fill="#6b7580">14 nodes, 27 edges, 18 of them conditional. Solid = always taken, dashed = chosen by a routing function. Generated from build_graph() by scripts/plot_graph.py.</text>
+<path d="M 184,128 C 224,128 224,128 264,128" fill="none" stroke="#55606e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M 1576,220 C 1682,140 1782,48 1888,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1705.8" y="97.5" width="52.4" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1732.0" y="108.0" font-size="10.5" fill="#55606e" text-anchor="middle">approved</text>
+<path d="M 1576,220 C 1761,123 1935,31 2120,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1821.8" y="84.8" width="52.4" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1848.0" y="95.2" font-size="10.5" fill="#55606e" text-anchor="middle">rejected</text>
+<path d="M 1344,220 C 1384,220 1384,220 1424,220" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1363.3" y="203.5" width="41.3" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1384.0" y="214.0" font-size="10.5" fill="#55606e" text-anchor="middle">action</text>
+<path d="M 1344,220 C 1608,106 1856,14 2120,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1703.0" y="72.0" width="57.9" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1732.0" y="82.5" font-size="10.5" fill="#55606e" text-anchor="middle">no action</text>
+<path d="M 1576,128 C 1761,31 1935,31 2120,128" fill="none" stroke="#55606e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M 2040,220 C 2080,220 2080,128 2120,128" fill="none" stroke="#55606e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M 1808,128 C 1848,128 1848,220 1888,220" fill="none" stroke="#55606e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M 2040,128 C 2080,128 2080,128 2120,128" fill="none" stroke="#55606e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M 1344,128 C 1529,225 1703,317 1888,220" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1595.3" y="230.2" width="41.3" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1616.0" y="240.8" font-size="10.5" fill="#55606e" text-anchor="middle">ticket</text>
+<path d="M 1344,128 C 1608,14 1856,14 2120,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1711.3" y="26.0" width="41.3" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1732.0" y="36.5" font-size="10.5" fill="#55606e" text-anchor="middle">answer</text>
+<path d="M 880,128 C 1065,31 1239,31 1424,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1131.3" y="38.8" width="41.3" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1152.0" y="49.2" font-size="10.5" fill="#55606e" text-anchor="middle">unsure</text>
+<path d="M 880,128 C 1144,14 1392,14 1656,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1247.3" y="26.0" width="41.3" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1268.0" y="36.5" font-size="10.5" fill="#55606e" text-anchor="middle">person</text>
+<path d="M 880,128 C 1302,-20 1698,-20 2120,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1471.0" y="0.5" width="57.9" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1500.0" y="11.0" font-size="10.5" fill="#55606e" text-anchor="middle">injection</text>
+<path d="M 880,128 C 920,128 920,128 960,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="899.4" y="111.5" width="41.3" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="920.0" y="122.0" font-size="10.5" fill="#55606e" text-anchor="middle">routed</text>
+<path d="M 648,128 C 688,128 688,128 728,128" fill="none" stroke="#55606e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M 416,128 C 456,128 456,128 496,128" fill="none" stroke="#55606e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M 2272,128 C 2312,128 2312,128 2352,128" fill="none" stroke="#55606e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M 1112,128 C 1152,128 1152,220 1192,220" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1084.2" y="157.5" width="135.6" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1152.0" y="168.0" font-size="10.5" fill="#55606e" text-anchor="middle">billing, refund, cancel</text>
+<path d="M 1112,128 C 1218,48 1318,48 1424,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1247.3" y="51.5" width="41.3" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1268.0" y="62.0" font-size="10.5" fill="#55606e" text-anchor="middle">unsure</text>
+<path d="M 1112,128 C 1297,31 1471,31 1656,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1363.3" y="38.8" width="41.3" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1384.0" y="49.2" font-size="10.5" fill="#55606e" text-anchor="middle">person</text>
+<path d="M 1112,128 C 1152,128 1152,128 1192,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1117.5" y="111.5" width="69.0" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1152.0" y="122.0" font-size="10.5" fill="#55606e" text-anchor="middle">faq intents</text>
+<path d="M 1112,128 C 1455,-3 1777,-3 2120,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1587.0" y="13.2" width="57.9" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1616.0" y="23.8" font-size="10.5" fill="#55606e" text-anchor="middle">injection</text>
+<path d="M 1112,128 C 1152,128 1152,312 1192,312" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1123.0" y="203.5" width="57.9" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1152.0" y="214.0" font-size="10.5" fill="#55606e" text-anchor="middle">technical</text>
+<path d="M 1344,312 C 1529,215 1703,123 1888,220" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1595.3" y="176.8" width="41.3" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1616.0" y="187.2" font-size="10.5" fill="#55606e" text-anchor="middle">ticket</text>
+<path d="M 1344,312 C 1608,198 1856,14 2120,128" fill="none" stroke="#98a2b3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/>
+<rect x="1711.3" y="118.0" width="41.3" height="16.5" rx="3" fill="#ffffff" fill-opacity="0.92"/><text x="1732.0" y="128.5" font-size="10.5" fill="#55606e" text-anchor="middle">answer</text>
+<path d="M 2504,128 C 2544,128 2544,128 2584,128" fill="none" stroke="#55606e" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="2584" y="104" width="152" height="48" rx="9" fill="#eef0f2" stroke="#7b8794" stroke-width="1.6"/>
+<text x="2660" y="124" font-size="12.5" font-weight="600" fill="#232a31" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">__end__</text>
+<rect x="32" y="104" width="152" height="48" rx="9" fill="#eef0f2" stroke="#7b8794" stroke-width="1.6"/>
+<text x="108" y="124" font-size="12.5" font-weight="600" fill="#232a31" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">__start__</text>
+<text x="108" y="140" font-size="9.5" fill="#5f6a76" text-anchor="middle">customer message</text>
+<rect x="1424" y="196" width="152" height="48" rx="9" fill="#fdf0d9" stroke="#c08a2e" stroke-width="1.6"/>
+<text x="1500" y="216" font-size="12.5" font-weight="600" fill="#3d2c0d" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">approval_gate</text>
+<text x="1500" y="232" font-size="9.5" fill="#5f6a76" text-anchor="middle">interrupt() for a decision</text>
+<rect x="1192" y="196" width="152" height="48" rx="9" fill="#e2f2e2" stroke="#4f8f4f" stroke-width="1.6"/>
+<text x="1268" y="216" font-size="12.5" font-weight="600" fill="#1c331c" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">billing_agent</text>
+<text x="1268" y="232" font-size="9.5" fill="#5f6a76" text-anchor="middle">invoices, refunds, cancel</text>
+<rect x="1424" y="104" width="152" height="48" rx="9" fill="#fdf0d9" stroke="#c08a2e" stroke-width="1.6"/>
+<text x="1500" y="124" font-size="12.5" font-weight="600" fill="#3d2c0d" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">clarify</text>
+<text x="1500" y="140" font-size="9.5" fill="#5f6a76" text-anchor="middle">one clarifying question</text>
+<rect x="1888" y="196" width="152" height="48" rx="9" fill="#fce5da" stroke="#c0703f" stroke-width="1.6"/>
+<text x="1964" y="216" font-size="12.5" font-weight="600" fill="#3d2515" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">create_ticket</text>
+<text x="1964" y="232" font-size="9.5" fill="#5f6a76" text-anchor="middle">real ticket row</text>
+<rect x="1656" y="104" width="152" height="48" rx="9" fill="#fce5da" stroke="#c0703f" stroke-width="1.6"/>
+<text x="1732" y="124" font-size="12.5" font-weight="600" fill="#3d2515" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">escalate</text>
+<text x="1732" y="140" font-size="9.5" fill="#5f6a76" text-anchor="middle">empathetic handoff</text>
+<rect x="1888" y="104" width="152" height="48" rx="9" fill="#fce5da" stroke="#c0703f" stroke-width="1.6"/>
+<text x="1964" y="124" font-size="12.5" font-weight="600" fill="#3d2515" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">execute_action</text>
+<text x="1964" y="140" font-size="9.5" fill="#5f6a76" text-anchor="middle">refund or cancel</text>
+<rect x="1192" y="104" width="152" height="48" rx="9" fill="#e2f2e2" stroke="#4f8f4f" stroke-width="1.6"/>
+<text x="1268" y="124" font-size="12.5" font-weight="600" fill="#1c331c" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">faq_agent</text>
+<text x="1268" y="140" font-size="9.5" fill="#5f6a76" text-anchor="middle">product, pricing, how-to</text>
+<rect x="728" y="104" width="152" height="48" rx="9" fill="#ede4f7" stroke="#7a5ba6" stroke-width="1.6"/>
+<text x="804" y="124" font-size="12.5" font-weight="600" fill="#2f2140" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">guardrail</text>
+<text x="804" y="140" font-size="9.5" fill="#5f6a76" text-anchor="middle">injection, then route</text>
+<rect x="496" y="104" width="152" height="48" rx="9" fill="#ede4f7" stroke="#7a5ba6" stroke-width="1.6"/>
+<text x="572" y="124" font-size="12.5" font-weight="600" fill="#2f2140" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">laya_router</text>
+<text x="572" y="140" font-size="9.5" fill="#5f6a76" text-anchor="middle">intent, urgency, noul</text>
+<rect x="264" y="104" width="152" height="48" rx="9" fill="#e8eef7" stroke="#4a6fa5" stroke-width="1.6"/>
+<text x="340" y="124" font-size="12.5" font-weight="600" fill="#1c2b40" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">load_context</text>
+<text x="340" y="140" font-size="9.5" fill="#5f6a76" text-anchor="middle">profile, memory, trim</text>
+<rect x="2120" y="104" width="152" height="48" rx="9" fill="#eef0f2" stroke="#7b8794" stroke-width="1.6"/>
+<text x="2196" y="124" font-size="12.5" font-weight="600" fill="#232a31" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">respond</text>
+<text x="2196" y="140" font-size="9.5" fill="#5f6a76" text-anchor="middle">reply + citations</text>
+<rect x="960" y="104" width="152" height="48" rx="9" fill="#dff2ef" stroke="#3f8f85" stroke-width="1.6"/>
+<text x="1036" y="124" font-size="12.5" font-weight="600" fill="#16332f" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">retrieve_kb</text>
+<text x="1036" y="140" font-size="9.5" fill="#5f6a76" text-anchor="middle">FAISS search + floor</text>
+<rect x="1192" y="288" width="152" height="48" rx="9" fill="#e2f2e2" stroke="#4f8f4f" stroke-width="1.6"/>
+<text x="1268" y="308" font-size="12.5" font-weight="600" fill="#1c331c" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">technical_agent</text>
+<text x="1268" y="324" font-size="9.5" fill="#5f6a76" text-anchor="middle">sync and platform</text>
+<rect x="2352" y="104" width="152" height="48" rx="9" fill="#eef0f2" stroke="#7b8794" stroke-width="1.6"/>
+<text x="2428" y="124" font-size="12.5" font-weight="600" fill="#232a31" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">update_memory</text>
+<text x="2428" y="140" font-size="9.5" fill="#5f6a76" text-anchor="middle">merge durable facts</text>
+<rect x="32" y="414" width="17" height="13" rx="4" fill="#e8eef7" stroke="#4a6fa5" stroke-width="1.4"/><text x="56" y="425" font-size="11" fill="#55606e">entry</text><rect x="92.5" y="414" width="17" height="13" rx="4" fill="#ede4f7" stroke="#7a5ba6" stroke-width="1.4"/><text x="116.5" y="425" font-size="11" fill="#55606e">routing</text><rect x="165.2" y="414" width="17" height="13" rx="4" fill="#dff2ef" stroke="#3f8f85" stroke-width="1.4"/><text x="189.2" y="425" font-size="11" fill="#55606e">retrieval</text><rect x="250.1" y="414" width="17" height="13" rx="4" fill="#e2f2e2" stroke="#4f8f4f" stroke-width="1.4"/><text x="274.1" y="425" font-size="11" fill="#55606e">agents</text><rect x="316.7" y="414" width="17" height="13" rx="4" fill="#fdf0d9" stroke="#c08a2e" stroke-width="1.4"/><text x="340.7" y="425" font-size="11" fill="#55606e">human in the loop</text><rect x="450.4" y="414" width="17" height="13" rx="4" fill="#fce5da" stroke="#c0703f" stroke-width="1.4"/><text x="474.4" y="425" font-size="11" fill="#55606e">action</text><rect x="517.0" y="414" width="17" height="13" rx="4" fill="#eef0f2" stroke="#7b8794" stroke-width="1.4"/><text x="541.0" y="425" font-size="11" fill="#55606e">output</text><line x1="607.6" y1="421" x2="641.6" y2="421" stroke="#55606e" stroke-width="1.7" marker-end="url(#arrow)"/><text x="650.6" y="425" font-size="11" fill="#55606e">unconditional edge</text><line x1="760.4000000000001" y1="421" x2="794.4000000000001" y2="421" stroke="#98a2b3" stroke-width="1.7" stroke-dasharray="6 4" marker-end="url(#arrow-soft)"/><text x="803.4000000000001" y="425" font-size="11" fill="#55606e">conditional edge</text>
+<text x="32" y="516" font-size="10.5" fill="#6b7580">Node names, edges and directions are read from the compiled StateGraph. Edge labels come from scripts/plot_graph.py, since LangGraph does not expose the condition text.</text>
+</svg>
