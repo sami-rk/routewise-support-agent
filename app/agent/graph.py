@@ -25,6 +25,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 
 from ..config import Settings, get_settings
+from ..observability.tracing import trace_node
 from .nodes.actions import (
     approval_gate,
     create_ticket_node,
@@ -80,35 +81,59 @@ def clarify(state: SupportState) -> dict[str, Any]:
     }
 
 
-def build_graph(checkpointer: Any = None, settings: Settings | None = None):
+def build_graph(checkpointer: Any = None, settings: Settings | None = None, *, traced: bool = True):
     """Build the StateGraph and wire every edge.
 
     Args:
         checkpointer: a saver to persist threads with. Without one the graph runs
             but remembers nothing between turns and cannot pause for approval.
         settings: for `ROUTER_MIN_CONF` and `REFUND_AUTO_LIMIT`.
+        traced: wrap each node in the trace decorator. Off in unit tests that only
+            care about a node's return value.
 
     Returns:
         The compiled graph, ready for `invoke` or `stream`.
     """
     settings = settings or get_settings()
 
+    nodes: dict[str, Any] = {
+        "load_context": load_context,
+        "laya_router": laya_router,
+        "guardrail": guardrail,
+        "retrieve_kb": retrieve_kb,
+        "faq_agent": faq_agent,
+        "billing_agent": billing_agent,
+        "technical_agent": technical_agent,
+        "clarify": clarify,
+        "approval_gate": approval_gate,
+        "execute_action": execute_action,
+        "create_ticket": create_ticket_node,
+        "escalate": escalate,
+        "respond": respond,
+        "update_memory": update_memory,
+    }
+    if traced:
+        # Named, rather than the model each node will use, so the trace says
+        # which node called a model without hardcoding a model id that the
+        # configuration is free to change.
+        models = {
+            "laya_router": router_backend_name(),
+            "faq_agent": "llm:faq",
+            "billing_agent": "llm:billing",
+            "technical_agent": "llm:technical",
+            "clarify": "llm:clarify",
+            "escalate": "llm:escalate",
+            "update_memory": "llm:memory",
+        }
+        nodes = {
+            name: trace_node(name, model=models.get(name))(func)
+            for name, func in nodes.items()
+        }
+
     graph = StateGraph(SupportState)
 
-    graph.add_node("load_context", load_context)
-    graph.add_node("laya_router", laya_router)
-    graph.add_node("guardrail", guardrail)
-    graph.add_node("retrieve_kb", retrieve_kb)
-    graph.add_node("faq_agent", faq_agent)
-    graph.add_node("billing_agent", billing_agent)
-    graph.add_node("technical_agent", technical_agent)
-    graph.add_node("clarify", clarify)
-    graph.add_node("approval_gate", approval_gate)
-    graph.add_node("execute_action", execute_action)
-    graph.add_node("create_ticket", create_ticket_node)
-    graph.add_node("escalate", escalate)
-    graph.add_node("respond", respond)
-    graph.add_node("update_memory", update_memory)
+    for name, func in nodes.items():
+        graph.add_node(name, func)
 
     graph.add_edge(START, "load_context")
     graph.add_edge("load_context", "laya_router")
@@ -194,3 +219,10 @@ def persistent_graph(settings: Settings | None = None) -> Iterator[Any]:
 def thread_config(thread_id: str) -> dict[str, Any]:
     """The config that pins a run to one conversation thread."""
     return {"configurable": {"thread_id": thread_id}}
+
+
+def router_backend_name() -> str:
+    """The router backend, for the trace: "laya" or "fake"."""
+    from ..models.factory import get_router
+
+    return getattr(get_router(), "name", "router")

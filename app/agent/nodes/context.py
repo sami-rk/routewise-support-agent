@@ -14,6 +14,7 @@ from langchain_core.messages import trim_messages
 from ...config import Settings, get_settings
 from ...memory.long_term import customer_facts
 from ...models.factory import get_router
+from ...observability.router_log import log_router_decision
 from ..state import SupportState, conversation_turns, last_customer_message
 
 
@@ -61,6 +62,7 @@ def laya_router(state: SupportState, settings: Settings | None = None) -> dict[s
     router_state = build_router_state(user_input, conversation_turns(messages[:-1] or messages, 2), summary)
 
     decision = get_router().predict(router_state)
+    log_router_decision(state.get("thread_id") or "unknown", user_input, decision)
 
     return {
         "intent": decision.intent,
