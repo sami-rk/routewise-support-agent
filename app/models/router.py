@@ -192,6 +192,23 @@ def combine_needs_human(
     return False, max(wants_human_conf or 0.0, sensitive_conf or 0.0), None
 
 
+def latest_utterance(state: str) -> str:
+    """The customer's most recent message inside a formatted router state.
+
+    `build_router_state` labels the profile and earlier turns, so a routing
+    signal can be taken from what the customer just said rather than from the
+    whole state. Without this, a customer on the "pro plan" has every message
+    read as a pricing question, and a summary mentioning an open legal issue
+    escalates every turn.
+
+    Plain text with no labels — which is what the evals pass — is returned
+    unchanged.
+    """
+    if "Customer:" not in state:
+        return state
+    return state.rsplit("Customer:", 1)[1].strip()
+
+
 def build_router_state(
     user_input: str,
     history: list[tuple[str, str]] | None = None,
@@ -220,7 +237,9 @@ def build_router_state(
     """
     parts: list[str] = []
     if customer_summary:
-        parts.append(f"Customer: {customer_summary.strip()}")
+        # Labelled distinctly from an utterance: a "pro plan" in the profile
+        # must not be read as the customer asking about pricing.
+        parts.append(f"Profile: {customer_summary.strip()}")
 
     turns = list(history or [])
     # Most recent turns first, so a later cut drops the oldest.
@@ -239,7 +258,7 @@ def build_router_state(
         return state
 
     # Over budget: keep the summary and the latest message, trim the middle.
-    head = f"Customer: {customer_summary.strip()}\n" if customer_summary else ""
+    head = f"Profile: {customer_summary.strip()}\n" if customer_summary else ""
     tail = f"Customer: {latest}" if latest else ""
     if len(head) + len(tail) >= max_chars:
         # Even the essentials do not fit: keep the end, which holds the message.
@@ -486,7 +505,10 @@ class FakeRouter:
         self.name = "fake-keyword" if escalate_on_keywords else "fake-keyword-plain"
 
     def predict(self, state: str) -> RouterDecision:
-        text = (state or "").lower()
+        # Signals come from what the customer just said, not from the whole
+        # state: a "pro plan" in the profile must not make every message a
+        # pricing question.
+        text = latest_utterance(state or "").lower()
 
         intent = self._intent(text)
         # A confident keyword decision, comfortably above ROUTER_MIN_CONF.
