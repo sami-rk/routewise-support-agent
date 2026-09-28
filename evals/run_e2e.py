@@ -108,6 +108,72 @@ def run_case(case: dict[str, Any], *, real: bool = False) -> dict[str, Any]:
 
 NEUTRAL_REPLY = "Thanks for your patience, I am checking that for you now."
 
+# The lexical embedder scores text that shares words above 0 and unrelated text
+# near 0, so the floor is low. The shipped default of 0.35 is tuned for
+# bge-small-en-v1.5 and would reject everything here.
+HASH_MIN_SCORE = 0.02
+
+
+def build_eval_retriever(workspace: Path, *, force_hash: bool = False) -> Any:
+    """The retriever the eval runs against.
+
+    Prefers the real index, so a developer with `scripts.build_kb` run gets the
+    same retrieval the product uses. When the embedding model is not installed —
+    which is the case in CI, deliberately, to keep it to a few minutes — it falls
+    back to building an index from the same documents with the deterministic
+    hash embedder. The eval is about graph behaviour: refunds, approvals,
+    guardrails and tickets. Which passages come back is covered by the RAG
+    tests, and retrieval quality by `scripts/build_kb` and a human reading the
+    citations.
+
+    Args:
+        workspace: a temporary directory for the fallback index.
+        force_hash: skip the real index even when it is usable.
+
+    Returns:
+        A `Retriever`, also installed as the process-wide one.
+    """
+    from app.rag.retriever import Retriever, set_retriever
+
+    # Loading the index succeeds even when the embedding model is missing,
+    # because SentenceTransformerEmbedder is lazy and only imports the model on
+    # the first query. So check for the module, not for a successful load.
+    import importlib.util
+
+    have_model = importlib.util.find_spec("sentence_transformers") is not None
+    have_index = (Path.cwd() / "data" / "kb_index" / "index.faiss").exists()
+
+    if not force_hash and have_model and have_index:
+        try:
+            from app.rag.retriever import get_retriever
+
+            return get_retriever()
+        except Exception as exc:  # noqa: BLE001 - any failure means "use the fallback"
+            print(f"real index unusable ({type(exc).__name__}); using the lexical index")
+    else:
+        missing = []
+        if not have_model:
+            missing.append("sentence-transformers is not installed")
+        if not have_index:
+            missing.append("the index has not been built (python -m scripts.build_kb)")
+        print("using the lexical index: " + "; ".join(missing))
+
+    from app.rag.chunking import chunk_directory
+    from app.rag.indexer import build_index, load_index
+    from app.rag.ingest import HashEmbedder
+
+    kb_dir = Path.cwd() / "data" / "knowledge_base"
+    chunks = chunk_directory(kb_dir)
+    embedder = HashEmbedder(512)
+    index_path = workspace / "kb_index" / "index.faiss"
+    build_index(chunks, embedder, index_path)
+    index, passages, metadata = load_index(index_path)
+    retriever = Retriever(
+        index, passages, embedder, top_k=4, min_score=HASH_MIN_SCORE, metadata=metadata
+    )
+    set_retriever(retriever)
+    return retriever
+
 
 def reset_database() -> None:
     """Empty the database and re-seed, so a case starts from a known state."""
@@ -213,6 +279,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the scripted end-to-end conversations.")
     parser.add_argument("--cases", type=Path, default=CASES_PATH)
     parser.add_argument("--real", action="store_true", help="Use live OpenRouter models.")
+    parser.add_argument(
+        "--hash-only",
+        action="store_true",
+        help="Always use the lexical index, even if the real one is available.",
+    )
     parser.add_argument("--only", default=None, help="Only cases whose name contains this.")
     args = parser.parse_args(argv)
 
@@ -244,11 +315,11 @@ def main(argv: list[str] | None = None) -> int:
     set_db_path(workspace / "support.db")
     init_db()
     seed()
-    if (Path.cwd() / "data" / "kb_index" / "index.faiss").exists():
-        set_retriever(get_retriever())
+    retriever = build_eval_retriever(workspace, force_hash=args.hash_only)
 
     print(f"{len(cases)} cases from {args.cases}")
-    print(f"backend: {'live OpenRouter' if args.real else 'stubbed model'}\n")
+    print(f"backend: {'live OpenRouter' if args.real else 'stubbed model'}")
+    print(f"retrieval: {retriever.health()['embedding_model']}\n")
 
     passed = 0
     for case in cases:

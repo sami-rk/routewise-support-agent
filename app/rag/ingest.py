@@ -98,6 +98,9 @@ class HashEmbedder:
 
     def __init__(self, dimension: int = 64) -> None:
         self._dimension = dimension
+        # Named so `Retriever.health()` and the built index say what they used
+        # rather than "unknown".
+        self.model_name = f"hash-{dimension}"
 
     def _vector(self, text: str) -> list[float]:
         import hashlib
