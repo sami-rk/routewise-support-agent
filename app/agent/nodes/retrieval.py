@@ -35,20 +35,22 @@ def retrieve_kb(state: SupportState) -> dict[str, Any]:
 
     try:
         retriever = get_retriever()
+        # The embedder is lazy, so the model is loaded here, on the first query,
+        # and not when the retriever is built. Both halves have to be covered:
+        # a missing index raises at `get_retriever`, a missing
+        # sentence-transformers raises here.
+        passages = retriever.search(query)
     except Exception as exc:  # noqa: BLE001
-        # No index, or the embedding model is not installed. Either way the
-        # agent should say it does not know rather than fail the turn: a
-        # knowledge base that cannot be read is a degraded system, not a broken
-        # one. FileNotFoundError is the common case, but a missing
-        # sentence-transformers raises ImportError and a corrupt index raises
-        # ValueError, and none of those should reach the customer.
+        # A knowledge base that cannot be read is a degraded system, not a
+        # broken one: the agent should say it does not know rather than fail
+        # the turn. FileNotFoundError, ImportError and ValueError from a
+        # half-written index all land here.
         return {
             "retrieved": [],
             "retrieved_context": f"{NOTHING_FOUND} (retrieval unavailable: {type(exc).__name__})",
             "retrieval_error": f"{type(exc).__name__}: {exc}",
         }
 
-    passages = retriever.search(query)
     if not passages:
         return {"retrieved": [], "retrieved_context": NOTHING_FOUND}
 
