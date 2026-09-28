@@ -86,6 +86,63 @@ LAYA_MAX_TOKENS = 512
 STATE_CHAR_BUDGET = 1200
 
 
+def build_router_state(
+    user_input: str,
+    history: list[tuple[str, str]] | None = None,
+    customer_summary: str | None = None,
+    *,
+    max_chars: int = STATE_CHAR_BUDGET,
+    max_turns: int = 2,
+) -> str:
+    """Build the text Laya routes on, small enough for its 512-token context.
+
+    The checkpoint spends that budget on instructions, options and state
+    together, so the state has to be tiny: the customer's latest message, at
+    most `max_turns` earlier turns, and a short profile summary. The newest
+    message is never dropped — it is what the decision is about — and if the
+    whole thing still does not fit, the older turns go first.
+
+    Args:
+        user_input: the customer's latest message.
+        history: earlier turns as (role, text), oldest first.
+        customer_summary: plan, devices, open issues. One short line.
+        max_chars: total budget for the state text.
+        max_turns: how many earlier turns to include.
+
+    Returns:
+        The state string to hand to the router.
+    """
+    parts: list[str] = []
+    if customer_summary:
+        parts.append(f"Customer: {customer_summary.strip()}")
+
+    turns = list(history or [])
+    # Most recent turns first, so a later cut drops the oldest.
+    recent = list(reversed(turns))[: max(0, max_turns)]
+    for role, text in reversed(recent):
+        text = " ".join((text or "").split())
+        if text:
+            parts.append(f"{role}: {text}")
+
+    latest = " ".join((user_input or "").split())
+    if latest:
+        parts.append(f"Customer: {latest}")
+
+    state = "\n".join(parts)
+    if len(state) <= max_chars:
+        return state
+
+    # Over budget: keep the summary and the latest message, trim the middle.
+    head = f"Customer: {customer_summary.strip()}\n" if customer_summary else ""
+    tail = f"Customer: {latest}" if latest else ""
+    if len(head) + len(tail) >= max_chars:
+        # Even the essentials do not fit: keep the end, which holds the message.
+        return tail[-max_chars:] if tail else head[:max_chars]
+    room = max_chars - len(head) - len(tail) - 1
+    middle = state[len(head) : len(state) - len(tail)]
+    return f"{head}{middle[-room:] if room > 0 else ''}\n{tail}"
+
+
 @dataclass
 class RouterDecision:
     """One turn's routing decision, with the probabilities that produced it."""
