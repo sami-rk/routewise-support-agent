@@ -1,5 +1,7 @@
 # CloudSync Pro support agent
 
+[![CI](https://github.com/sami-rk/routewise-support-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/sami-rk/routewise-support-agent/actions/workflows/ci.yml)
+
 A customer-support agent for a fictional cloud-storage product, built on
 **LangGraph**, routed by the local **Laya** decision model, with every LLM call
 going through **OpenRouter on free-tier models only**.
@@ -251,7 +253,7 @@ purchased credits.
 ## Tests and evaluations
 
 ```bash
-.venv/bin/python -m pytest tests/ -q        # 482 tests, fully offline
+.venv/bin/python -m pytest tests/ -q        # 519 tests, fully offline
 .venv/bin/python -m evals.run_e2e            # 18 scripted conversations
 .venv/bin/python -m evals.run_router --baseline
 .venv/bin/python -m evals.compare_routers --backend laya
@@ -261,6 +263,42 @@ purchased credits.
 The suite runs with `ROUTER_BACKEND=fake` and a scripted model: no OpenRouter key,
 no Laya checkpoint, no embedding model. A stub reply that a test forgot to script
 raises rather than returning something plausible, so a missing case fails loudly.
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and on every pull request.
+**It needs no secrets.** Four jobs:
+
+| Job | What it runs | Why it exists |
+|---|---|---|
+| `tests` | `pytest tests/ -q` on Python 3.11, 3.12, 3.13 and 3.14 | The matrix catches a pin that only works on one interpreter. |
+| `evals` | `evals.run_e2e`, `evals.run_router --backend fake --baseline`, `scripts.bench_router --backend fake` | The evals are the behavioural contract; a broken graph path fails here even when the unit tests pass. |
+| `laya-questions` | `tests/test_router_questions.py` against the real `laya` package | Validates the question definitions with laya's own validators, so a `laya` release that changes the question schema is caught. |
+| `graph` | `scripts/plot_graph.py --check` | Fails if a graph change was made without redrawing the diagram. |
+
+Two deliberate choices:
+
+- **CI installs `requirements-ci.txt`, not `requirements.txt`.** Every heavy
+  import in `app/` is inside a function, so the suite needs no `torch`, no `laya`
+  and no `sentence-transformers` — about 600 MB of wheels instead of several GB.
+  The `tests` job asserts those three are genuinely absent, so that if someone
+  later moves a heavy import to module level the job fails instead of quietly
+  getting slower.
+- **The `laya-questions` job does not download a checkpoint.** It exercises
+  laya's static question validators, not the model, so it validates the schema
+  without pulling 1.7 GB. The job asserts the cache is still empty afterwards.
+
+Locally, the same separation is useful:
+
+```bash
+python3 -m venv --without-pip .venv-ci
+curl -sS https://bootstrap.pypa.io/get-pip.py | .venv-ci/bin/python
+.venv-ci/bin/pip install -r requirements-ci.txt
+ROUTER_BACKEND=fake .venv-ci/bin/python -m pytest tests/ -q   # 500 passed, 3 skipped
+```
+
+The three skips are the laya-specific tests, which is exactly what the
+`laya-questions` job runs instead.
 
 ## Measured results
 
