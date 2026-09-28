@@ -72,22 +72,13 @@ QUESTIONS: dict[str, dict[str, Any]] = {
         "type": "choice",
         "instructions": "What is the customer mainly asking about?",
         "criteria": {
-            "product_info": (
-                "what the product does, its features, specifications, limits, "
-                "supported platforms or security, asked as a general question"
-            ),
+            "product_info": "what the product does, its features or how to use it",
             "pricing": "plans, prices, storage or what a plan includes",
-            "billing": "an invoice, a charge, a payment method, a receipt or a renewal",
+            "billing": "an invoice, a charge, a payment method or a renewal",
             "refund": "getting money back for a charge",
             "cancellation": "ending or downgrading a subscription",
-            "technical": (
-                "something is not working: a bug, a crash, an error message, a sync "
-                "that stops or fails, or a device that will not work"
-            ),
-            "account": (
-                "signing in, password reset, security settings, your profile, "
-                "changing your email address, or who has access to your files"
-            ),
+            "technical": "a bug, a sync failure, an app crash or a platform problem",
+            "account": "signing in, password reset, security settings or the profile",
             "smalltalk": "a greeting, thanks or anything that is not a support request",
         },
     },
