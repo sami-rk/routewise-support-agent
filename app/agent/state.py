@@ -60,8 +60,18 @@ class SupportState(TypedDict, total=False):
 
     # --- memory -----------------------------------------------------------
     customer_memory: str | None
+    # Name, plan, devices and memory, loaded once per turn.
+    customer_facts: dict[str, Any]
     # Set when the router was unsure and a clarifying question was asked.
     awaiting_clarification: bool
+    # Set by the guardrail when the turn looked like an injection attempt.
+    unsafe: bool
+    # Set by an agent that wants a ticket opened before it finishes.
+    wants_ticket: bool
+    # The router's full decision, for the trace and the UI.
+    router_decision: Any
+    # The exact text the router saw, kept so a decision can be explained.
+    router_state: str
 
     # --- observability ----------------------------------------------------
     trace: Annotated[list[dict[str, Any]], operator.add]

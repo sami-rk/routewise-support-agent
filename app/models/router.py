@@ -292,6 +292,15 @@ class RouterDecision:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @property
+    def wants_human(self) -> bool:
+        """True when a person must look at this turn.
+
+        Named from the caller's side, so the field on the decision stays
+        `needs_human` and this reads as a question.
+        """
+        return self.needs_human
+
+    @property
     def is_unsafe(self) -> bool:
         """True when the message looks like a prompt-injection attempt."""
         return self.injection and (self.injection_conf or 0.0) > INJECTION_THRESHOLD

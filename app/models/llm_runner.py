@@ -43,6 +43,8 @@ def invoke_with_fallback(
     tools: list[Any] | None = None,
     max_steps: int = MAX_MODELS,
     record: bool = True,
+    run_id: str | None = None,
+    thread_id: str | None = None,
     **invoke_kwargs: Any,
 ) -> Any:
     """Call the configured free models until one answers.
@@ -54,6 +56,8 @@ def invoke_with_fallback(
         tools: tool schemas to bind.
         max_steps: how many models to try.
         record: write an `llm_calls` row per attempt. Off in tests.
+        run_id: the graph run, so a call can be tied to a turn.
+        thread_id: the conversation, for the same reason.
         invoke_kwargs: passed through to `invoke`.
 
     Returns:
@@ -69,7 +73,6 @@ def invoke_with_fallback(
         raise LLMUnavailableError(BUSY_MESSAGE)
 
     last_error: BaseException | None = None
-    rate_limited = False
 
     for index, (model_name, llm) in enumerate(models):
         for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -79,15 +82,17 @@ def invoke_with_fallback(
             except Exception as exc:  # noqa: BLE001 - any provider error is handled the same way
                 last_error = exc
                 duration = (_now() - started) * 1000
-                rate_limited = rate_limited or is_rate_limited(exc)
+                limited = is_rate_limited(exc)
                 if record:
                     record_call(
                         role=role,
                         model=model_name,
                         attempt=attempt,
-                        status="rate_limited" if is_rate_limited(exc) else "error",
+                        status="rate_limited" if limited else "error",
                         error=str(exc)[:500],
                         duration_ms=duration,
+                        run_id=run_id,
+                        thread_id=thread_id,
                     )
                 if not is_retryable(exc):
                     # A 400 will not become a 200 on the same model, but the next
@@ -108,6 +113,8 @@ def invoke_with_fallback(
                         duration_ms=(_now() - started) * 1000,
                         tokens_in=_tokens(response, "input"),
                         tokens_out=_tokens(response, "output"),
+                        run_id=run_id,
+                        thread_id=thread_id,
                     )
                 return response
         # On to the next model, if there is one.
