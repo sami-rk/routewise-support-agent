@@ -1,0 +1,28 @@
+[
+  {
+    "router": "v1 keywords",
+    "intent_accuracy": 0.6796,
+    "correct": 70,
+    "total": 103,
+    "false_escalations": 18,
+    "missed_escalations": 5,
+    "escalation_accuracy": 0.7767,
+    "median_latency_ms": 0.2,
+    "mean_latency_ms": 0.2,
+    "total_seconds": 0.0,
+    "openrouter_requests_per_case": 0
+  },
+  {
+    "router": "v2 keywords",
+    "intent_accuracy": 0.6796,
+    "correct": 70,
+    "total": 103,
+    "false_escalations": 0,
+    "missed_escalations": 0,
+    "escalation_accuracy": 1.0,
+    "median_latency_ms": 0.2,
+    "mean_latency_ms": 0.3,
+    "total_seconds": 0.1,
+    "openrouter_requests_per_case": 0
+  }
+]
